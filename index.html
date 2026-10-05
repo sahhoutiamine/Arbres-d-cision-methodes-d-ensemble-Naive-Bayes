@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbres de décision, Méthodes d'ensemble & Naive Bayes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #ffffff;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .slide {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(30px) scale(0.98);
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            overflow: hidden;
+        }
+        
+        .slide.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+            z-index: 10;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        .floating { animation: float 6s ease-in-out infinite; }
+        
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.02); } }
+        .pulse-soft { animation: pulse-soft 3s ease-in-out infinite; }
+
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: bold; }
+        .tab-btn { border-bottom: 2px solid transparent; color: #6b7280; font-weight: 500; transition: all 0.3s; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Custom Colors */
+        .color-dt { color: #10b981; } .bg-dt { background-color: #10b981; }
+        .color-rf { color: #3b82f6; } .bg-rf { background-color: #3b82f6; }
+        .color-gb { color: #f97316; } .bg-gb { background-color: #f97316; }
+        .color-xgb { color: #f43f5e; } .bg-xgb { background-color: #f43f5e; }
+        .color-nb { color: #a855f7; } .bg-nb { background-color: #a855f7; }
+        
+        .tree-node { border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; background: white; text-align: center; font-weight: bold; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.3s; }
+        .tree-node.active-path { border-color: #10b981; background: #ecfdf5; transform: scale(1.05); box-shadow: 0 4px 6px rgba(16,185,129,0.2); }
+        .tree-line { width: 2px; background: #e5e7eb; transition: background 0.3s; }
+        .tree-line.active-path { background: #10b981; }
+
+        /* Sliders */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e5e7eb; border-radius: 2px; }
+        input[type=range]:focus { outline: none; }
+    </style>
+</head>
+<body class="text-gray-800 overflow-hidden w-screen h-screen relative">
+    
+    <!-- Barre de progression -->
+    <div class="absolute top-0 left-0 h-1.5 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-600 transition-all duration-500 ease-out z-50 shadow-sm" id="progress-bar" style="width: 0%"></div>
+
+    <!-- Notes de speaker (cachées par défaut, raccourci N) -->
+    <div id="speaker-notes" class="fixed top-4 right-4 w-80 glass-panel p-4 rounded-xl z-[100] hidden flex-col shadow-2xl border-blue-200 border-2">
+        <div class="flex justify-between items-center mb-2 border-b pb-2">
+            <h3 class="font-bold text-blue-800"><i data-lucide="mic" class="w-4 h-4 inline mr-1"></i> Speaker Notes</h3>
+            <button onclick="document.getElementById('speaker-notes').classList.add('hidden')" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <ul id="notes-content" class="text-sm space-y-2 text-gray-700 list-disc pl-4"></ul>
+    </div>
+
+    <!-- Slide 1 : Titre + plan interactif -->
+    <div class="slide active" id="slide-1">
+        <div class="text-center max-w-5xl glass-panel p-12 rounded-3xl floating border border-gray-100">
+            <div class="inline-flex items-center px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-600 font-semibold text-sm mb-4 uppercase tracking-wider">
+                <i data-lucide="network" class="w-4 h-4 mr-2"></i> Machine Learning
+            </div>
+            <h1 class="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 mb-4 leading-tight">
+                Arbres de décision, méthodes d'ensemble & Naive Bayes
+            </h1>
+            <h2 class="text-xl text-gray-500 mb-8 font-light">
+                Du modèle simple à XGBoost : principes, usages en classification et régression.
+            </h2>
+            
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div onclick="goToSlide(2)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-emerald-50 hover:border-emerald-200 transition-all group">
+                    <i data-lucide="git-merge" class="w-8 h-8 text-emerald-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-gray-800">Decision Tree</h3>
+                    <p class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity absolute inset-x-0 bottom-2 text-center bg-white/90 backdrop-blur-sm rounded mx-2 py-1">Principe et splits</p>
+                </div>
+                <div onclick="goToSlide(4)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-all group relative">
+                    <i data-lucide="trees" class="w-8 h-8 text-blue-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-gray-800">Random Forest</h3>
+                    <p class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity absolute inset-x-0 bottom-2 text-center bg-white/90 backdrop-blur-sm rounded mx-2 py-1">Bagging, variance ↓</p>
+                </div>
+                <div onclick="goToSlide(6)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-orange-50 hover:border-orange-200 transition-all group relative">
+                    <i data-lucide="list-ordered" class="w-8 h-8 text-orange-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-gray-800">Gradient Boosting</h3>
+                    <p class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity absolute inset-x-0 bottom-2 text-center bg-white/90 backdrop-blur-sm rounded mx-2 py-1">Séquentiel, biais ↓</p>
+                </div>
+                <div onclick="goToSlide(7)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-rose-50 hover:border-rose-200 transition-all group relative">
+                    <i data-lucide="zap" class="w-8 h-8 text-rose-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-gray-800">XGBoost</h3>
+                    <p class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity absolute inset-x-0 bottom-2 text-center bg-white/90 backdrop-blur-sm rounded mx-2 py-1">Optimisé & Régularisé</p>
+                </div>
+                <div onclick="goToSlide(9)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-purple-50 hover:border-purple-200 transition-all group relative">
+                    <i data-lucide="scale" class="w-8 h-8 text-purple-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-gray-800">Naive Bayes</h3>
+                    <p class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity absolute inset-x-0 bottom-2 text-center bg-white/90 backdrop-blur-sm rounded mx-2 py-1">Probabilités (Bayes)</p>
+                </div>
+                <div onclick="goToSlide(10)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-all group relative">
+                    <i data-lucide="table-2" class="w-8 h-8 text-gray-600 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
+                    <h3 class="font-bold text-gray-800">Comparaison</h3>
+                    <p class="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity absolute inset-x-0 bottom-2 text-center bg-white/90 backdrop-blur-sm rounded mx-2 py-1">Bilan global</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-xl flex items-center justify-center space-x-4 border border-gray-100 text-sm font-medium">
+                <span class="color-dt">Arbre unique</span> 
+                <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+                <span class="color-rf">Bagging (RF)</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+                <span class="color-gb">Boosting (GB)</span>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+                <span class="color-xgb font-bold">XGBoost</span>
+                <span class="mx-4 text-gray-300">|</span>
+                <span class="color-nb">Naive Bayes (Probabiliste)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 2 : Decision Tree (1/2) -->
+    <div class="slide" id="slide-2">
+        <div class="max-w-6xl w-full">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">Decision Tree (1/2) : Principe & Choix du split</h2>
+            
+            <div class="flex justify-center space-x-6 mb-6">
+                <button class="tab-btn active px-4 py-2 text-lg" onclick="switchTab('slide2', 1)">Principe</button>
+                <button class="tab-btn px-4 py-2 text-lg" onclick="switchTab('slide2', 2)">Choix du split</button>
+            </div>
+
+            <!-- Tab 1: Principe -->
+            <div id="slide2-tab1" class="tab-content active glass-panel p-8 rounded-3xl h-[600px] flex items-center relative">
+                <div class="w-1/3 pr-8 border-r border-gray-200">
+                    <h3 class="text-xl font-bold mb-4 flex items-center"><i data-lucide="user" class="mr-2 text-blue-500"></i> Client (Demande de prêt)</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-sm font-bold"><label>Revenu (€/mois)</label><span id="s2-rev-val">3500</span></div>
+                            <input type="range" id="s2-rev" min="1000" max="6000" step="100" value="3500" class="mt-1">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-bold"><label>Âge</label><span id="s2-age-val">30</span></div>
+                            <input type="range" id="s2-age" min="18" max="70" step="1" value="30" class="mt-1">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-bold"><label>Dette (%)</label><span id="s2-dette-val">20</span></div>
+                            <input type="range" id="s2-dette" min="0" max="80" step="5" value="20" class="mt-1">
+                        </div>
+                    </div>
+                    <div class="mt-8 p-4 bg-gray-50 rounded-xl">
+                        <div class="text-xs font-bold text-gray-500 uppercase">Résultat</div>
+                        <div id="s2-result" class="text-2xl font-black text-green-500 flex items-center mt-1">
+                            <i data-lucide="check-circle" class="mr-2"></i> Prêt Accordé
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="w-2/3 pl-8 flex flex-col items-center justify-start pt-4 relative h-full">
+                    <div class="text-sm text-gray-400 absolute top-0 right-0 flex space-x-4">
+                        <span class="flex items-center"><div class="w-3 h-3 bg-white border-2 border-gray-300 mr-1 rounded-sm"></div> Racine / Nœud</span>
+                        <span class="flex items-center"><div class="w-3 h-3 bg-emerald-100 border-2 border-emerald-500 mr-1 rounded-full"></div> Feuille</span>
+                    </div>
+
+                    <!-- Arbre statique interactif -->
+                    <div class="tree-node w-48 mt-4 z-10 relative cursor-help" id="s2-n1" title="Échantillons: 1000\nAccordé: 60%\nRefusé: 40%">Revenu > 3000 € ?</div>
+                    
+                    <div class="flex w-full justify-center my-1 relative">
+                        <div class="tree-line w-32 h-8 absolute right-1/2 origin-bottom-right transform -rotate-[30deg]" id="s2-l1-oui"></div>
+                        <div class="tree-line w-32 h-8 absolute left-1/2 origin-bottom-left transform rotate-[30deg]" id="s2-l1-non"></div>
+                    </div>
+                    
+                    <div class="flex w-full justify-around mt-8 z-10">
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-bold text-green-600 mb-1 bg-white px-1">Oui</span>
+                            <div class="tree-node w-40 cursor-help" id="s2-n2" title="Échantillons: 400\nAccordé: 85%\nRefusé: 15%">Dette < 40% ?</div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-bold text-red-600 mb-1 bg-white px-1">Non</span>
+                            <div class="tree-node w-40 cursor-help" id="s2-n3" title="Échantillons: 600\nAccordé: 43%\nRefusé: 57%">Âge > 25 ans ?</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Lignes N2 -->
+                    <div class="absolute w-1/2 left-0 flex justify-center top-[180px]">
+                        <div class="tree-line w-16 h-8 absolute right-1/2 origin-bottom-right transform -rotate-[20deg]" id="s2-l2-oui"></div>
+                        <div class="tree-line w-16 h-8 absolute left-1/2 origin-bottom-left transform rotate-[20deg]" id="s2-l2-non"></div>
+                    </div>
+                    <!-- Lignes N3 -->
+                    <div class="absolute w-1/2 right-0 flex justify-center top-[180px]">
+                        <div class="tree-line w-16 h-8 absolute right-1/2 origin-bottom-right transform -rotate-[20deg]" id="s2-l3-oui"></div>
+                        <div class="tree-line w-16 h-8 absolute left-1/2 origin-bottom-left transform rotate-[20deg]" id="s2-l3-non"></div>
+                    </div>
+
+                    <div class="flex w-full justify-between mt-10 px-8 z-10 text-sm">
+                        <!-- Feuilles -->
+                        <div class="tree-node rounded-full px-4 border-emerald-500 bg-emerald-50 w-24" id="s2-f1">Accordé (95%)</div>
+                        <div class="tree-node rounded-full px-4 border-red-500 bg-red-50 w-24" id="s2-f2">Refusé (70%)</div>
+                        <div class="tree-node rounded-full px-4 border-emerald-500 bg-emerald-50 w-24" id="s2-f3">Accordé (60%)</div>
+                        <div class="tree-node rounded-full px-4 border-red-500 bg-red-50 w-24" id="s2-f4">Refusé (80%)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Choix du split -->
+            <div id="slide2-tab2" class="tab-content glass-panel p-8 rounded-3xl h-[600px] flex flex-col relative">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold flex items-center"><i data-lucide="scissors" class="mr-2 text-blue-500"></i> Choix du Split (1D)</h3>
+                    <div class="flex space-x-4 bg-gray-100 p-1 rounded-lg">
+                        <label class="px-3 py-1 rounded cursor-pointer font-bold text-sm" id="s2-btn-gini"><input type="radio" name="crit" value="gini" checked class="hidden" onchange="updateS2Split()"> Gini</label>
+                        <label class="px-3 py-1 rounded cursor-pointer font-bold text-sm text-gray-500" id="s2-btn-ent"><input type="radio" name="crit" value="entropy" class="hidden" onchange="updateS2Split()"> Entropie</label>
+                    </div>
+                    <button onclick="s2FindBest()" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 text-sm flex items-center">
+                        <i data-lucide="search" class="w-4 h-4 mr-2"></i> Meilleur split
+                    </button>
+                </div>
+                
+                <div class="relative h-20 bg-gray-50 rounded-xl border border-gray-200 mt-4 overflow-visible px-4" id="s2-split-container">
+                    <canvas id="s2-dots-canvas" class="absolute inset-0 w-full h-full"></canvas>
+                    <!-- Curseur draggable -->
+                    <input type="range" id="s2-split-range" min="0" max="100" value="50" class="absolute top-1/2 -translate-y-1/2 left-0 w-full z-20 m-0 p-0" style="opacity:0.01;">
+                    <div id="s2-split-line" class="absolute top-0 bottom-0 w-0.5 bg-gray-800 z-10 pointer-events-none transition-transform" style="left: 50%;">
+                        <div class="absolute -top-4 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded font-bold" id="s2-split-val">5.0</div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between mt-6 flex-1 gap-4">
+                    <div class="w-1/3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                        <h4 class="font-bold text-blue-800 mb-2">Enfant Gauche</h4>
+                        <div class="text-sm text-gray-600 mb-2" id="s2-left-counts">Classe A: 0, Classe B: 0</div>
+                        <div class="text-xl font-black text-blue-600" id="s2-left-imp">0.00</div>
+                    </div>
+                    <div class="w-1/3 flex flex-col items-center justify-center">
+                        <div class="text-xs text-gray-400 font-bold uppercase mb-1">Impureté Pondérée</div>
+                        <div class="text-3xl font-black text-gray-800 mb-2" id="s2-weighted-imp">0.00</div>
+                        <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                            <div class="bg-green-500 h-full transition-all" id="s2-gain-bar" style="width:0%"></div>
+                        </div>
+                        <div class="text-xs text-green-600 font-bold mt-1">Gain: <span id="s2-gain-val">0.00</span></div>
+                    </div>
+                    <div class="w-1/3 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                        <h4 class="font-bold text-orange-800 mb-2">Enfant Droit</h4>
+                        <div class="text-sm text-gray-600 mb-2" id="s2-right-counts">Classe A: 0, Classe B: 0</div>
+                        <div class="text-xl font-black text-orange-600" id="s2-right-imp">0.00</div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 bg-gray-100 rounded-lg text-sm text-center font-mono text-gray-600 border border-gray-200" id="s2-formula">
+                    Gini = 1 - Σ pₖ²  |  Gain = I(parent) - Σ (nᵢ/n)·I(enfant i)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3 : Decision Tree (2/2) -->
+    <div class="slide" id="slide-3">
+        <div class="max-w-6xl w-full">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">Decision Tree (2/2) : Surapprentissage & Profondeur</h2>
+            
+            <div class="flex justify-center mb-6">
+                <div class="bg-gray-200 p-1 rounded-xl flex space-x-1">
+                    <button id="s3-btn-classif" onclick="s3SetMode('classif')" class="px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-blue-600">Classification</button>
+                    <button id="s3-btn-reg" onclick="s3SetMode('reg')" class="px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700">Régression</button>
+                </div>
+            </div>
+
+            <div class="flex space-x-6 h-[500px]">
+                <div class="w-1/4 glass-panel p-6 rounded-3xl flex flex-col justify-between">
+                    <div>
+                        <div class="mb-6">
+                            <div class="flex justify-between text-sm font-bold mb-2">
+                                <label>Profondeur (max_depth)</label><span class="bg-blue-100 text-blue-800 px-2 rounded" id="s3-depth-val">3</span>
+                            </div>
+                            <input type="range" id="s3-depth" min="1" max="10" value="3" oninput="updateS3()">
+                        </div>
+                        <div class="mb-6">
+                            <div class="flex justify-between text-sm font-bold mb-2">
+                                <label>Bruit (Noise)</label><span id="s3-noise-val">Modéré</span>
+                            </div>
+                            <input type="range" id="s3-noise" min="0" max="2" value="1" onchange="generateS3Data(); updateS3();">
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm">
+                        <div class="font-bold text-gray-700 mb-2 border-b pb-1">Propriétés</div>
+                        <div class="flex justify-between mb-1"><span>Sortie feuille:</span><span id="s3-prop-out" class="font-bold">Majorité</span></div>
+                        <div class="flex justify-between mb-1"><span>Critère:</span><span id="s3-prop-crit" class="font-bold">Gini/Entropie</span></div>
+                        <div class="flex justify-between"><span>Nb feuilles:</span><span id="s3-prop-leaves" class="font-bold text-blue-600">8</span></div>
+                    </div>
+                </div>
+                
+                <div class="w-1/2 glass-panel p-4 rounded-3xl relative">
+                    <h3 class="absolute top-6 left-6 font-bold text-gray-400 text-xs uppercase z-10">Espace de décision</h3>
+                    <canvas id="s3-canvas" class="w-full h-full rounded-2xl bg-white border border-gray-100"></canvas>
+                </div>
+                
+                <div class="w-1/4 glass-panel p-4 rounded-3xl flex flex-col">
+                    <h3 class="font-bold text-gray-400 text-xs uppercase mb-2 text-center">Score vs Profondeur</h3>
+                    <div class="flex-1 relative">
+                        <canvas id="s3-chart"></canvas>
+                    </div>
+                    <div id="s3-status" class="mt-2 text-center text-sm font-bold p-2 rounded bg-green-50 text-green-600 border border-green-200">Optimal</div>
+                </div>
+            </div>
+            <div class="text-center mt-4 text-gray-500 font-medium">
+                <i data-lucide="alert-triangle" class="inline w-4 h-4 text-orange-500 mr-1"></i>
+                Un arbre seul a une <strong>variance élevée</strong> (sujet à l'overfitting) <i data-lucide="arrow-right" class="inline w-4 h-4 mx-1"></i> on combine plusieurs arbres !
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4 : Random Forest (1/2) : Bagging -->
+    <div class="slide" id="slide-4">
+        <div class="max-w-6xl w-full">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">Random Forest (1/2) : Le Bagging</h2>
+            <p class="text-center text-gray-500 mb-8 font-medium">Bootstrap Aggregating : entraîner des arbres en parallèle sur des sous-échantillons.</p>
+            
+            <div class="glass-panel p-8 rounded-3xl h-[550px] flex flex-col relative">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <div class="flex space-x-4 items-center">
+                        <button onclick="s4NextStep()" id="s4-btn-step" class="px-5 py-2 bg-blue-600 text-white rounded-lg font-bold flex items-center hover:bg-blue-700">
+                            <i data-lucide="play" class="w-4 h-4 mr-2"></i> Étape suivante
+                        </button>
+                        <button onclick="s4Reset()" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200" title="Réinitialiser">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <div class="text-lg font-bold text-gray-700" id="s4-step-text">Étape 1 : Dataset original</div>
+                    <div class="flex items-center space-x-2 text-sm font-bold text-gray-600">
+                        <label>max_features</label>
+                        <input type="checkbox" id="s4-max-feat" class="w-4 h-4 accent-blue-600" onchange="s4UpdateUI()">
+                    </div>
+                </div>
+
+                <div class="flex-1 flex space-x-6 relative">
+                    <!-- Original Data -->
+                    <div class="w-1/3 border border-gray-200 rounded-xl bg-white p-4 relative" id="s4-original">
+                        <h3 class="text-xs font-bold text-gray-400 uppercase text-center mb-4">Dataset Complet (N=20)</h3>
+                        <div id="s4-dots-orig" class="flex flex-wrap gap-2 justify-center content-start h-full"></div>
+                    </div>
+                    
+                    <!-- Arrow -->
+                    <div class="flex items-center justify-center text-blue-300">
+                        <i data-lucide="arrow-right" class="w-8 h-8"></i>
+                    </div>
+
+                    <!-- Bootstrap Data -->
+                    <div class="w-1/3 border border-blue-200 rounded-xl bg-blue-50/30 p-4 relative opacity-50 transition-opacity" id="s4-bootstrap">
+                        <h3 class="text-xs font-bold text-blue-500 uppercase text-center mb-1">Échantillon Bootstrap</h3>
+                        <p class="text-[10px] text-center text-gray-400 mb-3">(Tirage avec remise)</p>
+                        <div id="s4-dots-boot" class="flex flex-wrap gap-2 justify-center content-start h-full relative"></div>
+                        <div id="s4-oob-info" class="absolute bottom-2 left-0 w-full text-center text-xs font-bold text-gray-500 hidden">OOB (non sélectionnés) : ~33%</div>
+                    </div>
+                    
+                    <div class="flex items-center justify-center text-blue-300">
+                        <i data-lucide="arrow-right" class="w-8 h-8"></i>
+                    </div>
+
+                    <!-- Mini Tree -->
+                    <div class="w-1/3 border border-emerald-200 rounded-xl bg-emerald-50/30 p-4 relative opacity-50 transition-opacity flex flex-col items-center justify-center" id="s4-tree">
+                        <h3 class="text-xs font-bold text-emerald-600 uppercase text-center mb-4 absolute top-4">Arbre <span id="s4-tree-idx">1</span></h3>
+                        <i data-lucide="network" class="w-24 h-24 text-emerald-400 mb-4" id="s4-tree-icon"></i>
+                        <div id="s4-feat-info" class="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded hidden">Variables aléatoires (max_features)</div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-center items-center space-x-2 opacity-0 transition-opacity" id="s4-aggregation">
+                    <span class="font-bold text-gray-700">Agrégation :</span>
+                    <div class="flex space-x-1" id="s4-forest-icons"></div>
+                    <span class="text-blue-600 font-bold ml-2">= Forêt finale</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5 : Random Forest (2/2) : Classification vs Reg -->
+    <div class="slide" id="slide-5">
+        <div class="max-w-6xl w-full">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">Random Forest (2/2) : Robustesse</h2>
+            
+            <div class="flex justify-center mb-6">
+                <div class="bg-gray-200 p-1 rounded-xl flex space-x-1">
+                    <button id="s5-btn-classif" onclick="s5SetMode('classif')" class="px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-blue-600">Classification (Vote)</button>
+                    <button id="s5-btn-reg" onclick="s5SetMode('reg')" class="px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700">Régression (Moyenne)</button>
+                </div>
+            </div>
+
+            <div class="flex space-x-6 h-[500px]">
+                <div class="w-2/3 glass-panel p-6 rounded-3xl relative flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-gray-600">Prédiction interactive</h3>
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm font-bold text-gray-500">n_estimators:</label>
+                            <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold text-sm" id="s5-est-val">10</span>
+                            <input type="range" id="s5-est" min="1" max="50" value="10" oninput="updateS5()">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-2 text-center" id="s5-instr">Cliquez sur la carte pour générer une prédiction.</p>
+                    
+                    <div class="flex-1 bg-white border border-gray-200 rounded-xl relative cursor-crosshair overflow-hidden" id="s5-map" onclick="s5Predict(event)">
+                        <!-- Canvas pour classif/reg visuel -->
+                        <canvas id="s5-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+                        <!-- Indicateur de clic -->
+                        <div id="s5-click-marker" class="absolute w-4 h-4 rounded-full border-2 border-white shadow-lg transform -translate-x-1/2 -translate-y-1/2 hidden z-20"></div>
+                    </div>
+                    
+                    <!-- Result panel -->
+                    <div id="s5-result-panel" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur shadow-2xl border border-gray-200 rounded-xl p-4 w-[80%] opacity-0 transition-opacity">
+                        <div class="text-xs font-bold text-gray-400 uppercase mb-2 text-center">Prédictions individuelles des arbres</div>
+                        <div id="s5-tree-preds" class="flex flex-wrap gap-1 justify-center max-h-16 overflow-hidden"></div>
+                        <div class="mt-3 text-center border-t pt-2 border-gray-100">
+                            <span class="text-sm text-gray-500 font-bold mr-2" id="s5-agg-text">Vote final :</span>
+                            <span class="text-2xl font-black text-gray-800" id="s5-final-pred">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-1/3 glass-panel p-6 rounded-3xl flex flex-col">
+                    <h3 class="font-bold text-gray-400 text-xs uppercase mb-2 text-center">Erreur Test vs Nbres d'arbres</h3>
+                    <div class="flex-1 relative">
+                        <canvas id="s5-chart"></canvas>
+                    </div>
+                    <div class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800 font-medium">
+                        <i data-lucide="info" class="inline w-4 h-4 mr-1 mb-1"></i>
+                        Ajouter des arbres réduit la variance jusqu'à un plateau. <strong>Le RF ne surapprend pas</strong> en augmentant `n_estimators`.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6 : Gradient Boosting -->
+    <div class="slide" id="slide-6">
+        <div class="max-w-[90rem] w-full px-8">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">Gradient Boosting : Apprentissage Séquentiel</h2>
+            
+            <div class="flex justify-between items-center mb-6">
+                <div class="bg-gray-200 p-1 rounded-xl flex space-x-1">
+                    <button id="s6-btn-reg" onclick="s6SetMode('reg')" class="px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-orange-600">Régression (MSE)</button>
+                    <button id="s6-btn-classif" onclick="s6SetMode('classif')" class="px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700">Classification (Log-loss)</button>
+                </div>
+                
+                <div class="flex items-center space-x-4 bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-100">
+                    <span class="font-mono font-bold text-gray-700 text-sm">F<sub class="text-[10px]">m</sub>(x) = F<sub class="text-[10px]">m-1</sub>(x) + <span class="text-orange-500">η</span> · h<sub class="text-[10px]">m</sub>(x)</span>
+                    <div class="h-6 w-px bg-gray-200"></div>
+                    <label class="text-sm font-bold text-gray-500">η (LR):</label>
+                    <span class="bg-orange-100 text-orange-800 px-2 rounded font-bold text-sm w-10 text-center" id="s6-lr-val">0.3</span>
+                    <input type="range" id="s6-lr" min="0.05" max="1" step="0.05" value="0.3" class="w-24" onchange="s6UpdateLR()">
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button onclick="s6AddTree()" id="s6-btn-add" class="px-4 py-2 bg-orange-500 text-white font-bold rounded-lg hover:bg-orange-600 shadow flex items-center">
+                        <i data-lucide="plus" class="w-4 h-4 mr-1"></i> Ajouter un arbre
+                    </button>
+                    <button onclick="s6AutoPlay()" id="s6-btn-auto" class="px-4 py-2 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-900 shadow flex items-center">
+                        <i data-lucide="play" class="w-4 h-4 mr-1"></i> Auto
+                    </button>
+                    <button onclick="s6Reset()" class="px-3 py-2 bg-gray-200 text-gray-700 font-bold rounded-lg hover:bg-gray-300">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-4 h-[450px]">
+                <div class="col-span-1 glass-panel p-4 rounded-3xl flex flex-col relative bg-white border border-gray-100 shadow-lg">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase text-center mb-2">Modèle Actuel F<sub class="lowercase">m</sub></h3>
+                    <div class="absolute top-4 right-4 bg-orange-100 text-orange-800 font-black px-2 py-1 rounded text-sm">m = <span id="s6-m-val">0</span></div>
+                    <canvas id="s6-canvas-F" class="flex-1 w-full mt-6"></canvas>
+                </div>
+                
+                <div class="col-span-1 glass-panel p-4 rounded-3xl flex flex-col bg-red-50/50 border border-red-100 shadow-lg relative">
+                    <div class="flex justify-center items-center text-gray-300 absolute -left-6 top-1/2 transform -translate-y-1/2 z-20">
+                        <i data-lucide="arrow-right" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xs font-bold text-red-500 uppercase text-center mb-2">Calcul des Résidus</h3>
+                    <div class="text-center text-[10px] text-gray-500 font-mono mb-2" id="s6-res-form">r = y - F(x)</div>
+                    <canvas id="s6-canvas-res" class="flex-1 w-full"></canvas>
+                </div>
+                
+                <div class="col-span-1 glass-panel p-4 rounded-3xl flex flex-col bg-emerald-50/50 border border-emerald-100 shadow-lg relative">
+                    <div class="flex justify-center items-center text-gray-300 absolute -left-6 top-1/2 transform -translate-y-1/2 z-20">
+                        <i data-lucide="arrow-right" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-xs font-bold text-emerald-600 uppercase text-center mb-2">Nouvel Arbre h<sub class="lowercase">m</sub></h3>
+                    <div class="text-center text-[10px] text-gray-500 mb-2">Fit sur les résidus (max_depth=2)</div>
+                    <canvas id="s6-canvas-h" class="flex-1 w-full"></canvas>
+                </div>
+                
+                <div class="col-span-1 glass-panel p-4 rounded-3xl flex flex-col relative bg-white border border-gray-100 shadow-lg">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase text-center mb-2">Évolution de la Perte</h3>
+                    <canvas id="s6-chart-loss" class="flex-1 w-full"></canvas>
+                    <div id="s6-overfit-warn" class="absolute bottom-16 left-4 right-4 bg-red-100 text-red-700 text-xs font-bold p-2 rounded text-center opacity-0 transition-opacity border border-red-200">
+                        <i data-lucide="alert-triangle" class="inline w-3 h-3 mr-1"></i> Overfitting ! (Test remonte)
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-center mt-6 space-x-8">
+                <span class="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm border border-blue-100 shadow-sm"><strong class="font-black">Bagging</strong> = parallèle (réduit la variance)</span>
+                <span class="px-4 py-2 bg-orange-50 text-orange-700 rounded-lg text-sm border border-orange-100 shadow-sm"><strong class="font-black">Boosting</strong> = séquentiel (réduit le biais)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 7 : XGBoost (1/2) -->
+    <div class="slide" id="slide-7">
+        <div class="max-w-6xl w-full">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">XGBoost : eXtreme Gradient Boosting</h2>
+            
+            <div class="flex justify-center space-x-6 mb-6">
+                <button class="tab-btn active px-4 py-2 text-lg" onclick="switchTab('slide7', 1)">Optimisations</button>
+                <button class="tab-btn px-4 py-2 text-lg" onclick="switchTab('slide7', 2)">Régularisation (Interactif)</button>
+            </div>
+
+            <!-- Tab 1: Optimisations -->
+            <div id="slide7-tab1" class="tab-content active glass-panel p-8 rounded-3xl min-h-[500px] flex flex-col justify-center">
+                <div class="bg-gray-900 text-white p-4 rounded-xl text-center font-mono text-sm shadow-inner mx-auto mb-8 w-max">
+                    Obj = Σ <span class="text-blue-400">l(yᵢ, ŷᵢ)</span> + Σ <span class="text-rose-400">Ω(fₖ)</span>
+                    <span class="mx-4">|</span>
+                    <span class="text-rose-400">Ω(f)</span> = γT + ½λΣwⱼ²
+                </div>
+                
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="bg-white p-5 rounded-2xl border-t-4 border-rose-500 shadow-sm hover:shadow-md transition-shadow">
+                        <i data-lucide="shield-check" class="text-rose-500 w-8 h-8 mb-2"></i>
+                        <h4 class="font-bold text-gray-800 mb-1">Régularisation (L1/L2)</h4>
+                        <p class="text-xs text-gray-500">Pénalise les feuilles complexes et les poids élevés (λ, α, γ).</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border-t-4 border-blue-500 shadow-sm hover:shadow-md transition-shadow">
+                        <i data-lucide="sigma" class="text-blue-500 w-8 h-8 mb-2"></i>
+                        <h4 class="font-bold text-gray-800 mb-1">Approx. 2nd Ordre</h4>
+                        <p class="text-xs text-gray-500">Utilise le Gradient ET le Hessien (dérivée seconde) pour une convergence rapide.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border-t-4 border-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+                        <i data-lucide="cpu" class="text-emerald-500 w-8 h-8 mb-2"></i>
+                        <h4 class="font-bold text-gray-800 mb-1">Histogrammes</h4>
+                        <p class="text-xs text-gray-500">Regroupe les features continues en bins pour accélérer le choix des splits.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border-t-4 border-orange-500 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                        <i data-lucide="search-x" class="text-orange-500 w-8 h-8 mb-2"></i>
+                        <h4 class="font-bold text-gray-800 mb-1">Valeurs Manquantes</h4>
+                        <p class="text-xs text-gray-500">Apprend une "direction par défaut" (gauche/droite) pour les NaN.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border-t-4 border-purple-500 shadow-sm hover:shadow-md transition-shadow">
+                        <i data-lucide="scissors" class="text-purple-500 w-8 h-8 mb-2"></i>
+                        <h4 class="font-bold text-gray-800 mb-1">Élagage via Gamma</h4>
+                        <p class="text-xs text-gray-500">Tree pruning: ne garde le split que si le Gain > γ.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border-t-4 border-indigo-500 shadow-sm hover:shadow-md transition-shadow">
+                        <i data-lucide="dice-5" class="text-indigo-500 w-8 h-8 mb-2"></i>
+                        <h4 class="font-bold text-gray-800 mb-1">Sous-échantillonnage</h4>
+                        <p class="text-xs text-gray-500">`subsample` (lignes) et `colsample_bytree` (colonnes) pour éviter l'overfitting.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Régularisation -->
+            <div id="slide7-tab2" class="tab-content glass-panel p-8 rounded-3xl min-h-[500px] flex flex-col relative">
+                <div class="absolute top-4 right-6 text-[10px] font-bold text-rose-500 uppercase border border-rose-200 px-2 py-1 rounded bg-rose-50">Simulation pédagogique</div>
+                
+                <div class="flex space-x-8 flex-1">
+                    <div class="w-1/3 flex flex-col justify-center space-y-8 border-r border-gray-200 pr-8">
+                        <div>
+                            <div class="flex justify-between mb-2 font-bold"><label class="text-gray-700">reg_lambda (L2)</label><span id="s7-lam-val" class="text-rose-600">0</span></div>
+                            <input type="range" id="s7-lam" min="0" max="10" step="0.5" value="0" class="accent-rose-500" oninput="updateS7()">
+                            <p class="text-[10px] text-gray-400 mt-1">Réduit la valeur absolue des poids (w).</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2 font-bold"><label class="text-gray-700">gamma (γ)</label><span id="s7-gam-val" class="text-rose-600">0</span></div>
+                            <input type="range" id="s7-gam" min="0" max="10" step="0.5" value="0" class="accent-rose-500" oninput="updateS7()">
+                            <p class="text-[10px] text-gray-400 mt-1">Seuil de gain minimal pour un split.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="w-2/3 flex flex-col justify-around">
+                        <!-- Visualisation Poids (Lambda) -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 class="font-bold text-sm text-gray-500 uppercase mb-4">Effet de Lambda sur les Poids (Feuilles)</h4>
+                            <div class="flex justify-around items-end h-24 border-b border-gray-300 pb-1" id="s7-bars">
+                                <!-- Bars drawn via JS -->
+                            </div>
+                            <div class="text-center font-mono text-xs text-gray-500 mt-2">w* = -G / (H + <span class="text-rose-500 font-bold">λ</span>)</div>
+                        </div>
+                        
+                        <!-- Visualisation Pruning (Gamma) -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-sm text-gray-500 uppercase mb-1">Effet de Gamma (Élagage)</h4>
+                                <div class="font-mono text-xs text-gray-500">Gain du Split candidat = <span id="s7-split-gain">4.5</span></div>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div id="s7-prune-node" class="w-16 h-10 border-2 border-emerald-500 rounded bg-emerald-100 flex items-center justify-center font-bold text-emerald-700 transition-all">Split OK</div>
+                                <div class="text-[10px] mt-1 text-gray-400 font-mono">Gain - γ > 0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 8 : XGBoost (2/2) : Hyperparamètres -->
+    <div class="slide" id="slide-8">
+        <div class="max-w-[90rem] w-full px-8">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">XGBoost (2/2) : Hyperparamètres</h2>
+            
+            <div class="absolute top-8 right-8 text-[10px] font-bold text-rose-500 uppercase border border-rose-200 px-2 py-1 rounded bg-rose-50 z-20">Simulation pédagogique</div>
+
+            <div class="grid grid-cols-12 gap-6 h-[500px]">
+                <!-- Controles -->
+                <div class="col-span-3 glass-panel p-5 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs font-bold mb-1"><label>n_estimators</label><span id="s8-nest-val" class="text-rose-600">100</span></div>
+                            <input type="range" id="s8-nest" min="10" max="500" step="10" value="100" class="accent-rose-500" oninput="updateS8()">
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs font-bold mb-1"><label>learning_rate</label><span id="s8-lr-val" class="text-rose-600">0.1</span></div>
+                            <input type="range" id="s8-lr" min="0.01" max="0.5" step="0.01" value="0.1" class="accent-rose-500" oninput="updateS8()">
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs font-bold mb-1"><label>max_depth</label><span id="s8-depth-val" class="text-rose-600">6</span></div>
+                            <input type="range" id="s8-depth" min="1" max="10" step="1" value="6" class="accent-rose-500" oninput="updateS8()">
+                        </div>
+                        <div class="mb-4 flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <label class="text-xs font-bold text-gray-700">early_stopping</label>
+                            <input type="checkbox" id="s8-early" class="w-4 h-4 accent-rose-500" onchange="updateS8()">
+                        </div>
+                    </div>
+                    
+                    <button onclick="s8Optimize()" class="w-full py-2 bg-gray-900 text-white text-sm font-bold rounded-xl shadow hover:bg-gray-800 transition-all flex justify-center items-center">
+                        <i data-lucide="wand-2" class="w-4 h-4 mr-2"></i> Config. recommandée
+                    </button>
+                </div>
+
+                <!-- Charts -->
+                <div class="col-span-6 glass-panel p-4 rounded-3xl bg-white flex flex-col">
+                    <div class="flex justify-between items-center mb-2 px-2">
+                        <h3 class="font-bold text-gray-400 text-xs uppercase">Courbes d'apprentissage</h3>
+                        <div id="s8-status" class="px-2 py-1 rounded text-[10px] font-black uppercase text-white bg-green-500">Optimal</div>
+                    </div>
+                    <div class="flex-1 relative">
+                        <canvas id="s8-line-chart"></canvas>
+                    </div>
+                    <div id="s8-advice" class="mt-2 p-2 bg-blue-50 text-blue-800 text-xs font-medium rounded-lg text-center border border-blue-100 transition-all">
+                        Bon équilibre.
+                    </div>
+                </div>
+
+                <!-- Radar -->
+                <div class="col-span-3 glass-panel p-4 rounded-3xl bg-white flex flex-col items-center justify-center">
+                    <h3 class="font-bold text-gray-400 text-xs uppercase mb-2 w-full text-center">Profil du Modèle</h3>
+                    <div class="w-full aspect-square relative">
+                        <canvas id="s8-radar-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 9 : Naive Bayes -->
+    <div class="slide" id="slide-9">
+        <div class="max-w-6xl w-full">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">Naive Bayes : Probabilités</h2>
+            
+            <div class="flex justify-center space-x-6 mb-6">
+                <button class="tab-btn active px-4 py-2 text-lg" onclick="switchTab('slide9', 1)">Théorème de Bayes</button>
+                <button class="tab-btn px-4 py-2 text-lg" onclick="switchTab('slide9', 2)">Indépendance (Spam)</button>
+            </div>
+
+            <!-- Tab 1: Bayes -->
+            <div id="slide9-tab1" class="tab-content active glass-panel p-8 rounded-3xl min-h-[500px] flex space-x-8">
+                <div class="w-1/3 flex flex-col justify-center space-y-6 border-r border-gray-200 pr-8">
+                    <div>
+                        <div class="flex justify-between text-sm font-bold mb-1"><label>Prior P(Maladie)</label><span id="s9-pC-val">1%</span></div>
+                        <input type="range" id="s9-pC" min="0.1" max="10" step="0.1" value="1" class="accent-purple-500" oninput="updateS9Bayes()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm font-bold mb-1"><label>Sensibilité P(+|Malade)</label><span id="s9-pXC-val">90%</span></div>
+                        <input type="range" id="s9-pXC" min="50" max="99" step="1" value="90" class="accent-purple-500" oninput="updateS9Bayes()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm font-bold mb-1"><label>Faux Positifs P(+|Sain)</label><span id="s9-pXnotC-val">9%</span></div>
+                        <input type="range" id="s9-pXnotC" min="1" max="20" step="1" value="9" class="accent-purple-500" oninput="updateS9Bayes()">
+                    </div>
+                </div>
+                
+                <div class="w-2/3 flex flex-col justify-center relative">
+                    <div class="bg-purple-50 p-6 rounded-2xl border border-purple-200 mb-8 text-center shadow-inner">
+                        <div class="text-xl font-bold text-purple-900 mb-4">P(Malade | Test +) = <span class="text-2xl font-black" id="s9-post-val">9.17%</span></div>
+                        <div class="font-mono text-sm text-gray-600 bg-white inline-block px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+                            <span id="s9-form-num" class="font-bold text-purple-600">0.90 × 0.01</span> / <span id="s9-form-den"> (0.90 × 0.01 + 0.09 × 0.99) </span>
+                        </div>
+                    </div>
+                    
+                    <h4 class="text-xs font-bold text-gray-400 uppercase text-center mb-2">Population de 1000 personnes</h4>
+                    <div class="relative w-full h-32 bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                        <canvas id="s9-dots-canvas" class="w-full h-full"></canvas>
+                    </div>
+                    <div class="flex justify-center space-x-6 mt-2 text-xs font-bold text-gray-500">
+                        <span class="flex items-center"><div class="w-3 h-3 rounded-full bg-red-500 mr-1"></div> Malade Test+ (Vrai Pos.)</span>
+                        <span class="flex items-center"><div class="w-3 h-3 rounded-full bg-purple-400 mr-1"></div> Sain Test+ (Faux Pos.)</span>
+                        <span class="flex items-center"><div class="w-3 h-3 rounded-full bg-gray-300 mr-1"></div> Autres</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Spam (Indépendance) -->
+            <div id="slide9-tab2" class="tab-content glass-panel p-8 rounded-3xl min-h-[500px] flex space-x-6 relative">
+                <div class="w-1/2 flex flex-col">
+                    <div class="mb-4">
+                        <h3 class="font-bold text-gray-700 mb-2">Message (Cliquez sur les mots) :</h3>
+                        <div class="bg-white p-4 rounded-xl border border-gray-200 flex flex-wrap gap-2 text-lg shadow-inner min-h-[100px] content-start" id="s9-spam-words">
+                            <!-- JS gen -->
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 mt-auto">
+                        <span class="font-bold text-sm text-gray-600">Lissage de Laplace (mot inconnu = 0)</span>
+                        <input type="checkbox" id="s9-laplace" class="w-4 h-4 accent-purple-500" onchange="updateS9Spam()">
+                    </div>
+                </div>
+                
+                <div class="w-1/2 flex flex-col relative bg-gray-800 text-white rounded-2xl p-6 font-mono text-sm shadow-xl">
+                    <div class="text-purple-300 mb-4 font-bold border-b border-gray-600 pb-2">Calcul Naive Bayes</div>
+                    <div class="flex-1 overflow-y-auto space-y-2 opacity-80" id="s9-spam-calc">
+                        <!-- JS gen -->
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-600">
+                        <div class="flex justify-between mb-2"><span>P(Spam|X) ∝</span><span id="s9-p-spam" class="font-bold text-red-400">0</span></div>
+                        <div class="flex justify-between mb-4"><span>P(Ham|X) ∝</span><span id="s9-p-ham" class="font-bold text-green-400">0</span></div>
+                        
+                        <div class="w-full bg-gray-700 h-6 rounded-full overflow-hidden relative">
+                            <div id="s9-spam-bar" class="h-full bg-red-500 transition-all" style="width: 50%"></div>
+                            <div class="absolute inset-0 flex items-center justify-center font-black text-xs mix-blend-difference" id="s9-verdict">INCERTAIN</div>
+                        </div>
+                    </div>
+                    <div class="absolute top-4 right-4 bg-gray-700 px-2 py-1 rounded text-xs text-gray-300">P(X|C) = Π P(xᵢ|C)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 10 : Comparaison & Conclusion -->
+    <div class="slide" id="slide-10">
+        <div class="max-w-[95rem] w-full px-4">
+            <h2 class="text-4xl font-bold text-gray-800 mb-8 text-center">Comparaison & Choix du Modèle</h2>
+            
+            <div class="flex space-x-6 h-[550px]">
+                <div class="w-3/4 glass-panel p-6 rounded-3xl bg-white border border-gray-100 flex flex-col">
+                    <div class="flex space-x-4 mb-4">
+                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-emerald-600"><input type="checkbox" checked value="dt" class="s10-cb accent-emerald-500 w-4 h-4" onchange="updateS10()"> <span>Decision Tree</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-blue-600"><input type="checkbox" checked value="rf" class="s10-cb accent-blue-500 w-4 h-4" onchange="updateS10()"> <span>Random Forest</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-orange-600"><input type="checkbox" checked value="gb" class="s10-cb accent-orange-500 w-4 h-4" onchange="updateS10()"> <span>Gradient Boosting</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-rose-600"><input type="checkbox" checked value="xgb" class="s10-cb accent-rose-500 w-4 h-4" onchange="updateS10()"> <span>XGBoost</span></label>
+                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-purple-600"><input type="checkbox" checked value="nb" class="s10-cb accent-purple-500 w-4 h-4" onchange="updateS10()"> <span>Naive Bayes</span></label>
+                    </div>
+                    
+                    <div class="overflow-y-auto flex-1 border border-gray-200 rounded-xl">
+                        <table class="w-full text-left text-sm" id="s10-table">
+                            <thead class="bg-gray-100 sticky top-0 z-10 text-xs uppercase font-bold text-gray-600">
+                                <tr>
+                                    <th class="p-3">Critère</th>
+                                    <th class="p-3 text-emerald-700 col-dt transition-opacity">Decision Tree</th>
+                                    <th class="p-3 text-blue-700 col-rf transition-opacity">Random Forest</th>
+                                    <th class="p-3 text-orange-700 col-gb transition-opacity">Grad. Boosting</th>
+                                    <th class="p-3 text-rose-700 col-xgb transition-opacity">XGBoost</th>
+                                    <th class="p-3 text-purple-700 col-nb transition-opacity">Naive Bayes</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white" id="s10-tbody">
+                                <!-- JS Gen -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="w-1/4 flex flex-col space-y-4">
+                    <div class="glass-panel p-4 rounded-3xl bg-white border border-gray-100 h-1/2 flex flex-col items-center justify-center">
+                        <h3 class="font-bold text-gray-400 text-xs uppercase mb-2">Profil Sélectionné</h3>
+                        <div class="w-full h-full relative"><canvas id="s10-radar"></canvas></div>
+                    </div>
+                    <div class="glass-panel p-6 rounded-3xl bg-gray-900 text-white border border-gray-700 h-1/2 relative overflow-hidden group">
+                        <div class="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-800 opacity-20"></div>
+                        <h3 class="font-bold text-indigo-300 text-sm uppercase mb-4 relative z-10">Conclusion</h3>
+                        <ul class="text-sm space-y-3 relative z-10 opacity-90 font-medium">
+                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-emerald-400 mr-2 shrink-0 mt-0.5"></i> Interprétabilité ? → Arbre</li>
+                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-blue-400 mr-2 shrink-0 mt-0.5"></i> Robuste out-of-box ? → Forêt</li>
+                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-rose-400 mr-2 shrink-0 mt-0.5"></i> Performance Max ? → XGBoost</li>
+                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-purple-400 mr-2 shrink-0 mt-0.5"></i> Texte / Rapide ? → Naive Bayes</li>
+                        </ul>
+                        <div class="absolute bottom-4 right-4 text-gray-500 opacity-50"><i data-lucide="award" class="w-8 h-8"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-right text-xs font-bold text-gray-400 mt-2">10 / 10</div>
+        </div>
+    </div>
+
+
+    <!-- Navigation Overlay -->
+    <div class="absolute bottom-6 left-0 w-full flex justify-between items-center px-16 z-50 pointer-events-none">
+        <button onclick="prevSlide()" class="pointer-events-auto p-4 bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-gray-100 hover:bg-gray-50 hover:scale-105 transition-all disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed group text-gray-800" id="btn-prev">
+            <i data-lucide="chevron-left" class="w-6 h-6 group-hover:-translate-x-1 transition-transform"></i>
+        </button>
+        
+        <div class="pointer-events-auto flex space-x-3 items-center bg-white/80 backdrop-blur px-6 py-3 rounded-full shadow-sm border border-gray-100" id="slide-indicators">
+            <!-- JS gen -->
+        </div>
+        
+        <button onclick="nextSlide()" class="pointer-events-auto p-4 bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-gray-100 hover:bg-gray-50 hover:scale-105 transition-all disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed group text-gray-800" id="btn-next">
+            <i data-lucide="chevron-right" class="w-6 h-6 group-hover:translate-x-1 transition-transform"></i>
+        </button>
+    </div>
+
+    <script>
+        // --- UTILITAIRES INITIAUX ---
+        let seed = 42;
+        function random() {
+            let t = seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+        const setSeed = s => seed = s;
+        const fmt = n => n.toLocaleString('fr-FR', {maximumFractionDigits:2});
+        
+        // Custom Chart.js defaults
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)';
+
+        // --- ML MICRO-LIBRARY ---
+        class Node { constructor(depth) { this.depth = depth; this.isLeaf = false; } }
+        function varLoss(y) { if(y.length<2) return 0; let m = y.reduce((a,b)=>a+b,0)/y.length; return y.reduce((a,b)=>a+(b-m)**2,0); }
+        function giniLoss(y) { if(y.length<2) return 0; let c={}, g=1; y.forEach(v=>c[v]=(c[v]||0)+1); for(let k in c) g-=(c[k]/y.length)**2; return g*y.length; }
+        
+        function buildCART(X, y, max_depth, isReg, depth=0) {
+            let node = new Node(depth);
+            let u = [...new Set(y)];
+            if(depth >= max_depth || u.length === 1 || X.length < 2) {
+                node.isLeaf = true;
+                node.val = isReg ? y.reduce((a,b)=>a+b,0)/y.length : (u.sort((a,b)=>y.filter(v=>v===a).length - y.filter(v=>v===b).length).pop());
+                return node;
+            }
+            let best = { loss: Infinity };
+            let n_f = X[0].length;
+            for(let f=0; f<n_f; f++) {
+                let vals = [...new Set(X.map(x=>x[f]))].sort((a,b)=>a-b);
+                for(let i=0; i<vals.length-1; i++) {
+                    let t = (vals[i]+vals[i+1])/2;
+                    let L_y=[], R_y=[];
+                    for(let j=0; j<X.length; j++) { if(X[j][f]<=t) L_y.push(y[j]); else R_y.push(y[j]); }
+                    if(L_y.length===0 || R_y.length===0) continue;
+                    let loss = isReg ? (varLoss(L_y) + varLoss(R_y)) : (giniLoss(L_y) + giniLoss(R_y));
+                    if(loss < best.loss) best = { loss, f, t, L_y, R_y };
+                }
+            }
+            if(best.loss === Infinity) {
+                node.isLeaf = true;
+                node.val = isReg ? y.reduce((a,b)=>a+b,0)/y.length : (u.sort((a,b)=>y.filter(v=>v===a).length - y.filter(v=>v===b).length).pop());
+                return node;
+            }
+            node.f = best.f; node.t = best.t;
+            let X_L=[], y_L=[], X_R=[], y_R=[];
+            for(let i=0; i<X.length; i++) {
+                if(X[i][best.f]<=best.t) { X_L.push(X[i]); y_L.push(y[i]); }
+                else { X_R.push(X[i]); y_R.push(y[i]); }
+            }
+            node.left = buildCART(X_L, y_L, max_depth, isReg, depth+1);
+            node.right = buildCART(X_R, y_R, max_depth, isReg, depth+1);
+            return node;
+        }
+        function predictCART(node, x) {
+            if(node.isLeaf) return node.val;
+            return x[node.f] <= node.t ? predictCART(node.left, x) : predictCART(node.right, x);
+        }
+        function countLeaves(node) {
+            if(!node) return 0;
+            if(node.isLeaf) return 1;
+            return countLeaves(node.left) + countLeaves(node.right);
+        }
+
+        // --- NAVIGATION ---
+        const totalSlides = 10;
+        let currentSlide = 1;
+        const indicators = document.getElementById('slide-indicators');
+        for(let i=1; i<=totalSlides; i++) {
+            const dot = document.createElement('button');
+            dot.className = `w-2 h-2 rounded-full transition-all focus:outline-none ${i===1?'bg-blue-600 w-6':'bg-gray-300 hover:bg-gray-400'}`;
+            dot.onclick = () => goToSlide(i);
+            dot.id = `dot-${i}`;
+            indicators.appendChild(dot);
+        }
+
+        const speakerNotes = [
+            ["Introduction générale", "Lien logique entre les modèles"],
+            ["Decision Tree : Arbre de décision intuitif", "Montrer comment un nœud divise l'espace", "Différence Gini vs Entropie"],
+            ["Max_depth : paramètre clé", "Démontrer l'overfitting avec une grande profondeur"],
+            ["Random Forest : Introduction au Bagging", "Bootstrap = échantillonnage avec remise", "Décorrélation via max_features"],
+            ["Random Forest : Robustesse", "Vote majoritaire vs Moyenne", "Pas de surapprentissage avec ++ arbres"],
+            ["Gradient Boosting : Principe", "Apprentissage sur les résidus", "Risque d'overfitting si ++ arbres ou LR grand"],
+            ["XGBoost : Les ajouts", "Approximation du second ordre (Hessien)", "Régularisation L1/L2 intégrée"],
+            ["XGBoost : Hyperparamètres", "Dashboard interactif", "Importance de l'early stopping"],
+            ["Naive Bayes", "Formule de Bayes", "Hypothèse d'indépendance forte", "Problème du 0 (Laplace)"],
+            ["Conclusion", "Arbre vs Forêt vs Boosting", "Rappel des critères de choix"]
+        ];
+
+        function updateSlides() {
+            for(let i=1; i<=totalSlides; i++) {
+                const s = document.getElementById(`slide-${i}`);
+                const d = document.getElementById(`dot-${i}`);
+                if(i === currentSlide) {
+                    s.classList.add('active');
+                    d.className = 'w-6 h-2 rounded-full bg-blue-600 transition-all';
+                } else {
+                    s.classList.remove('active');
+                    d.className = 'w-2 h-2 rounded-full bg-gray-300 hover:bg-gray-400 transition-all';
+                }
+            }
+            document.getElementById('btn-prev').disabled = currentSlide === 1;
+            document.getElementById('btn-next').disabled = currentSlide === totalSlides;
+            document.getElementById('progress-bar').style.width = `${((currentSlide - 1) / (totalSlides - 1)) * 100}%`;
+            
+            // Notes de speaker update
+            const ul = document.getElementById('notes-content');
+            ul.innerHTML = '';
+            (speakerNotes[currentSlide-1] || []).forEach(note => {
+                let li = document.createElement('li'); li.innerText = note; ul.appendChild(li);
+            });
+
+            lazyLoad(currentSlide);
+            if(window.lucide) window.lucide.createIcons();
+        }
+
+        function nextSlide() { if(currentSlide < totalSlides) { currentSlide++; updateSlides(); } }
+        function prevSlide() { if(currentSlide > 1) { currentSlide--; updateSlides(); } }
+        function goToSlide(n) { currentSlide = n; updateSlides(); }
+
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'ArrowRight' || e.key === 'Space') { e.preventDefault(); nextSlide(); }
+            if(e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+            if(e.key === 'Home') { e.preventDefault(); goToSlide(1); }
+            if(e.key === 'End') { e.preventDefault(); goToSlide(totalSlides); }
+            if(e.key === 'n' || e.key === 'N') {
+                const n = document.getElementById('speaker-notes');
+                n.classList.toggle('hidden'); n.classList.toggle('flex');
+            }
+            if((e.key === 'r' || e.key === 'R') && window[`s${currentSlide}Reset`]) {
+                window[`s${currentSlide}Reset`]();
+            }
+        });
+
+        function switchTab(slideId, tabIdx) {
+            const slide = document.getElementById(slideId);
+            const btns = slide.querySelectorAll('.tab-btn');
+            const contents = slide.querySelectorAll('.tab-content');
+            btns.forEach((b, i) => { if(i===tabIdx-1) b.classList.add('active'); else b.classList.remove('active'); });
+            contents.forEach((c, i) => { if(i===tabIdx-1) c.classList.add('active'); else c.classList.remove('active'); });
+        }
+
+        // --- LAZY LOADING ---
+        const loaded = {};
+        function lazyLoad(slideNum) {
+            if(loaded[slideNum]) return;
+            loaded[slideNum] = true;
+            if(slideNum === 2) initS2();
+            if(slideNum === 3) initS3();
+            if(slideNum === 4) initS4();
+            if(slideNum === 5) initS5();
+            if(slideNum === 6) initS6();
+            if(slideNum === 7) initS7();
+            if(slideNum === 8) initS8();
+            if(slideNum === 9) initS9();
+            if(slideNum === 10) initS10();
+        }
+
+        // ==========================================
+        // SLIDE 2 : Principe & 1D Split
+        // ==========================================
+        let s2Data = [];
+        function initS2() {
+            // Tab 1 Logic
+            const inputs = ['rev', 'age', 'dette'];
+            inputs.forEach(id => {
+                document.getElementById(`s2-${id}`).addEventListener('input', (e) => {
+                    document.getElementById(`s2-${id}-val`).innerText = e.target.value;
+                    evalS2Tree();
+                });
+            });
+            evalS2Tree();
+            
+            // Tab 2 Logic
+            setSeed(123);
+            for(let i=0; i<30; i++) {
+                let x = random() * 10;
+                let c = (x > 4.5 && x < 7) ? 1 : 0;
+                if(random() < 0.1) c = 1-c; // bruit
+                s2Data.push({x, c});
+            }
+            const r = document.getElementById('s2-split-range');
+            r.addEventListener('input', (e) => {
+                let val = (e.target.value / 10).toFixed(1);
+                document.getElementById('s2-split-val').innerText = val;
+                document.getElementById('s2-split-line').style.left = `${e.target.value}%`;
+                updateS2SplitVals(parseFloat(val));
+            });
+            drawS2Dots();
+            updateS2SplitVals(5.0);
+        }
+
+        function evalS2Tree() {
+            let rev = parseInt(document.getElementById('s2-rev').value);
+            let age = parseInt(document.getElementById('s2-age').value);
+            let det = parseInt(document.getElementById('s2-dette').value);
+            
+            // Reset
+            document.querySelectorAll('.active-path').forEach(e => e.classList.remove('active-path'));
+            
+            document.getElementById('s2-n1').classList.add('active-path');
+            let res = true;
+            if(rev > 3000) {
+                document.getElementById('s2-l1-oui').classList.add('active-path');
+                document.getElementById('s2-n2').classList.add('active-path');
+                if(det < 40) {
+                    document.getElementById('s2-l2-oui').classList.add('active-path');
+                    document.getElementById('s2-f1').classList.add('active-path');
+                    res = true;
+                } else {
+                    document.getElementById('s2-l2-non').classList.add('active-path');
+                    document.getElementById('s2-f2').classList.add('active-path');
+                    res = false;
+                }
+            } else {
+                document.getElementById('s2-l1-non').classList.add('active-path');
+                document.getElementById('s2-n3').classList.add('active-path');
+                if(age > 25) {
+                    document.getElementById('s2-l3-oui').classList.add('active-path');
+                    document.getElementById('s2-f3').classList.add('active-path');
+                    res = true;
+                } else {
+                    document.getElementById('s2-l3-non').classList.add('active-path');
+                    document.getElementById('s2-f4').classList.add('active-path');
+                    res = false;
+                }
+            }
+            
+            const rEl = document.getElementById('s2-result');
+            if(res) {
+                rEl.className = 'text-2xl font-black text-emerald-500 flex items-center mt-1';
+                rEl.innerHTML = '<i data-lucide="check-circle" class="mr-2"></i> Prêt Accordé';
+            } else {
+                rEl.className = 'text-2xl font-black text-red-500 flex items-center mt-1';
+                rEl.innerHTML = '<i data-lucide="x-circle" class="mr-2"></i> Prêt Refusé';
+            }
+            if(window.lucide) window.lucide.createIcons();
+        }
+
+        function drawS2Dots() {
+            const canvas = document.getElementById('s2-dots-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            s2Data.forEach(d => {
+                let px = (d.x / 10) * canvas.width;
+                ctx.beginPath();
+                ctx.arc(px, canvas.height/2, 8, 0, 2*Math.PI);
+                ctx.fillStyle = d.c === 0 ? '#3b82f6' : '#f97316'; // blue A, orange B
+                ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth=2; ctx.stroke();
+            });
+        }
+
+        function updateS2Split() {
+            let isGini = document.querySelector('input[name="crit"]:checked').value === 'gini';
+            document.getElementById('s2-btn-gini').className = isGini ? "px-3 py-1 rounded cursor-pointer font-bold text-sm bg-white shadow-sm text-blue-600" : "px-3 py-1 rounded cursor-pointer font-bold text-sm text-gray-500 hover:text-gray-700";
+            document.getElementById('s2-btn-ent').className = !isGini ? "px-3 py-1 rounded cursor-pointer font-bold text-sm bg-white shadow-sm text-blue-600" : "px-3 py-1 rounded cursor-pointer font-bold text-sm text-gray-500 hover:text-gray-700";
+            updateS2SplitVals(parseFloat(document.getElementById('s2-split-val').innerText));
+        }
+
+        function calcImpurity(counts, isGini) {
+            let total = counts[0]+counts[1];
+            if(total===0) return 0;
+            let p0 = counts[0]/total, p1 = counts[1]/total;
+            if(isGini) return 1 - (p0*p0 + p1*p1);
+            else {
+                let ent = 0;
+                if(p0>0) ent -= p0*Math.log2(p0);
+                if(p1>0) ent -= p1*Math.log2(p1);
+                return ent;
+            }
+        }
+
+        function updateS2SplitVals(t) {
+            let left = s2Data.filter(d=>d.x<=t);
+            let right = s2Data.filter(d=>d.x>t);
+            let cl = [left.filter(d=>d.c===0).length, left.filter(d=>d.c===1).length];
+            let cr = [right.filter(d=>d.c===0).length, right.filter(d=>d.c===1).length];
+            let isGini = document.querySelector('input[name="crit"]:checked').value === 'gini';
+            
+            document.getElementById('s2-left-counts').innerText = `A (Bleu): ${cl[0]} | B (Orange): ${cl[1]}`;
+            document.getElementById('s2-right-counts').innerText = `A (Bleu): ${cr[0]} | B (Orange): ${cr[1]}`;
+            
+            let il = calcImpurity(cl, isGini);
+            let ir = calcImpurity(cr, isGini);
+            document.getElementById('s2-left-imp').innerText = il.toFixed(3);
+            document.getElementById('s2-right-imp').innerText = ir.toFixed(3);
+            
+            let parentC = [s2Data.filter(d=>d.c===0).length, s2Data.filter(d=>d.c===1).length];
+            let iParent = calcImpurity(parentC, isGini);
+            let wImp = (left.length/s2Data.length)*il + (right.length/s2Data.length)*ir;
+            document.getElementById('s2-weighted-imp').innerText = wImp.toFixed(3);
+            
+            let gain = iParent - wImp;
+            document.getElementById('s2-gain-val').innerText = gain.toFixed(3);
+            document.getElementById('s2-gain-bar').style.width = `${(gain/iParent)*100}%`;
+        }
+        
+        function s2FindBest() {
+            let bestT = 0, maxG = -1;
+            let isGini = document.querySelector('input[name="crit"]:checked').value === 'gini';
+            let parentC = [s2Data.filter(d=>d.c===0).length, s2Data.filter(d=>d.c===1).length];
+            let iParent = calcImpurity(parentC, isGini);
+            
+            for(let t=0.1; t<9.9; t+=0.1) {
+                let left = s2Data.filter(d=>d.x<=t);
+                let right = s2Data.filter(d=>d.x>t);
+                let cl = [left.filter(d=>d.c===0).length, left.filter(d=>d.c===1).length];
+                let cr = [right.filter(d=>d.c===0).length, right.filter(d=>d.c===1).length];
+                let wImp = (left.length/s2Data.length)*calcImpurity(cl,isGini) + (right.length/s2Data.length)*calcImpurity(cr,isGini);
+                let gain = iParent - wImp;
+                if(gain > maxG) { maxG = gain; bestT = t; }
+            }
+            
+            document.getElementById('s2-split-range').value = bestT * 10;
+            document.getElementById('s2-split-range').dispatchEvent(new Event('input'));
+        }
+
+        // ==========================================
+        // SLIDE 3 : DT 2/2 (Depth & Overfitting)
+        // ==========================================
+        let s3Mode = 'classif';
+        let s3DataTrain = [], s3DataTest = [];
+        let s3Chart = null;
+
+        function s3SetMode(mode) {
+            s3Mode = mode;
+            document.getElementById('s3-btn-classif').className = mode==='classif' ? "px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700";
+            document.getElementById('s3-btn-reg').className = mode==='reg' ? "px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-orange-600" : "px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700";
+            
+            document.getElementById('s3-prop-out').innerText = mode==='classif' ? "Majorité (Classe)" : "Moyenne (Valeur)";
+            document.getElementById('s3-prop-crit').innerText = mode==='classif' ? "Gini / Entropie" : "MSE / Variance";
+            
+            generateS3Data();
+            updateS3();
+        }
+
+        function generateS3Data() {
+            setSeed(99);
+            s3DataTrain = []; s3DataTest = [];
+            let noise = parseFloat(document.getElementById('s3-noise').value) * 0.15;
+            let n = 100;
+            for(let i=0; i<n; i++) {
+                if(s3Mode === 'classif') {
+                    let x1 = random()*10, x2 = random()*10;
+                    let c = (x1>5 ^ x2>5) ? 1 : 0;
+                    if(random() < noise*2) c = 1-c;
+                    (i<n*0.7 ? s3DataTrain : s3DataTest).push({x:[x1,x2], y:c});
+                } else {
+                    let x = random()*10;
+                    let y = Math.sin(x) + (random()-0.5)*noise*10;
+                    (i<n*0.7 ? s3DataTrain : s3DataTest).push({x:[x], y});
+                }
+            }
+        }
+
+        function initS3() {
+            const ctx = document.getElementById('s3-chart').getContext('2d');
+            s3Chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [1,2,3,4,5,6,7,8,9,10],
+                    datasets: [
+                        { label: 'Train', data: [], borderColor: '#10b981', borderWidth:3, tension:0.2 },
+                        { label: 'Test', data: [], borderColor: '#ef4444', borderWidth:3, tension:0.2 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { display: false }, x:{ grid: {display: false} } },
+                    plugins: { legend: { position: 'bottom' } },
+                    animation: { duration: 0 }
+                }
+            });
+            s3SetMode('classif');
+        }
+
+        function updateS3() {
+            let depth = parseInt(document.getElementById('s3-depth').value);
+            document.getElementById('s3-depth-val').innerText = depth;
+            let nVals = ['Nul', 'Modéré', 'Fort'];
+            document.getElementById('s3-noise-val').innerText = nVals[document.getElementById('s3-noise').value];
+            
+            let isReg = s3Mode === 'reg';
+            let tree = buildCART(s3DataTrain.map(d=>d.x), s3DataTrain.map(d=>d.y), depth, isReg);
+            
+            document.getElementById('s3-prop-leaves').innerText = countLeaves(tree);
+            
+            // Draw Canvas
+            const cvs = document.getElementById('s3-canvas');
+            const ctx = cvs.getContext('2d');
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+            ctx.clearRect(0,0,cvs.width,cvs.height);
+            
+            if(isReg) {
+                // Line plot
+                ctx.beginPath();
+                for(let px=0; px<cvs.width; px++) {
+                    let x = (px/cvs.width)*10;
+                    let p = predictCART(tree, [x]);
+                    let py = cvs.height - ((p+2)/4)*cvs.height; // scale approx
+                    if(px===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.strokeStyle = '#f97316'; ctx.lineWidth = 3; ctx.stroke();
+                // Dots
+                s3DataTrain.forEach(d=>{
+                    let px = (d.x[0]/10)*cvs.width;
+                    let py = cvs.height - ((d.y+2)/4)*cvs.height;
+                    ctx.beginPath(); ctx.arc(px,py,3,0,2*Math.PI); ctx.fillStyle='#94a3b8'; ctx.fill();
+                });
+            } else {
+                // 2D regions (optimized: 50x50 grid)
+                let gw = cvs.width/50, gh = cvs.height/50;
+                for(let i=0; i<50; i++) {
+                    for(let j=0; j<50; j++) {
+                        let x1 = (i/50)*10, x2 = (1-j/50)*10; // y inverted
+                        let p = predictCART(tree, [x1,x2]);
+                        ctx.fillStyle = p===0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(249, 115, 22, 0.2)';
+                        ctx.fillRect(i*gw, j*gh, Math.ceil(gw), Math.ceil(gh));
+                    }
+                }
+                // Dots
+                s3DataTrain.forEach(d=>{
+                    let px = (d.x[0]/10)*cvs.width;
+                    let py = (1-d.x[1]/10)*cvs.height;
+                    ctx.beginPath(); ctx.arc(px,py,4,0,2*Math.PI);
+                    ctx.fillStyle = d.y===0 ? '#3b82f6' : '#f97316';
+                    ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+                });
+            }
+            
+            // Update Chart (simulated fast curve based on tree depth and noise)
+            let n = parseInt(document.getElementById('s3-noise').value);
+            let tr=[], te=[];
+            for(let d=1; d<=10; d++) {
+                let t_err = 1/Math.pow(d, 0.8); // drops
+                let te_err = t_err + (n*0.1)*Math.pow(d-2, 1.5) * (d>2?1:0); // rises if noise
+                if(d===1) te_err += 0.2; // underfit
+                tr.push(1 - t_err);
+                te.push(1 - te_err);
+            }
+            s3Chart.data.datasets[0].data = tr;
+            s3Chart.data.datasets[1].data = te;
+            s3Chart.update();
+            
+            // Status
+            let stat = document.getElementById('s3-status');
+            if(depth < 3) { stat.innerText = "Sous-apprentissage"; stat.className="mt-2 text-center text-sm font-bold p-2 rounded bg-orange-50 text-orange-600 border border-orange-200"; }
+            else if(depth > (n===0?8:4)) { stat.innerText = "Surapprentissage (Overfitting)"; stat.className="mt-2 text-center text-sm font-bold p-2 rounded bg-red-50 text-red-600 border border-red-200"; }
+            else { stat.innerText = "Optimal"; stat.className="mt-2 text-center text-sm font-bold p-2 rounded bg-green-50 text-green-600 border border-green-200"; }
+        }
+
+
+        // ==========================================
+        // SLIDE 4 : Random Forest 1/2 Bagging
+        // ==========================================
+        let s4State = 0;
+        let s4Data = [];
+        let s4Boot = [];
+        
+        function initS4() {
+            setSeed(44);
+            const cont = document.getElementById('s4-dots-orig');
+            cont.innerHTML = '';
+            for(let i=0; i<20; i++) {
+                let c = random() > 0.5 ? 1 : 0;
+                s4Data.push({id: i, c});
+                let d = document.createElement('div');
+                d.className = `w-4 h-4 rounded-full border border-white shadow-sm ${c===1?'bg-orange-500':'bg-blue-500'}`;
+                d.id = `s4-o-${i}`;
+                cont.appendChild(d);
+            }
+            s4Reset();
+        }
+
+        function s4Reset() {
+            s4State = 0;
+            document.getElementById('s4-step-text').innerText = "Étape 1 : Dataset original";
+            document.getElementById('s4-btn-step').disabled = false;
+            document.getElementById('s4-bootstrap').classList.add('opacity-50');
+            document.getElementById('s4-tree').classList.add('opacity-50');
+            document.getElementById('s4-aggregation').classList.add('opacity-0');
+            document.getElementById('s4-dots-boot').innerHTML = '';
+            document.getElementById('s4-oob-info').classList.add('hidden');
+            s4Data.forEach((_,i) => document.getElementById(`s4-o-${i}`).style.opacity = '1');
+            document.getElementById('s4-forest-icons').innerHTML = '';
+        }
+
+        function s4NextStep() {
+            s4State++;
+            if(s4State === 1) {
+                document.getElementById('s4-step-text').innerText = "Étape 2 : Échantillon Bootstrap (N=20)";
+                document.getElementById('s4-bootstrap').classList.remove('opacity-50');
+                
+                // Bootstrap draw
+                s4Boot = [];
+                let counts = {};
+                for(let i=0; i<20; i++) {
+                    let idx = Math.floor(random()*20);
+                    s4Boot.push(s4Data[idx]);
+                    counts[idx] = (counts[idx]||0)+1;
+                }
+                
+                // Gray out OOB
+                s4Data.forEach((_,i) => {
+                    document.getElementById(`s4-o-${i}`).style.opacity = counts[i] ? '1' : '0.2';
+                });
+                
+                const cb = document.getElementById('s4-dots-boot');
+                cb.innerHTML = '';
+                s4Boot.forEach(d => {
+                    let e = document.createElement('div');
+                    e.className = `w-4 h-4 rounded-full border border-white shadow-sm ${d.c===1?'bg-orange-500':'bg-blue-500'}`;
+                    cb.appendChild(e);
+                });
+                document.getElementById('s4-oob-info').classList.remove('hidden');
+                
+            } else if(s4State === 2) {
+                document.getElementById('s4-step-text').innerText = "Étape 3 : Entraînement d'un arbre";
+                document.getElementById('s4-tree').classList.remove('opacity-50');
+                document.getElementById('s4-tree-icon').classList.add('pulse-soft');
+                s4UpdateUI();
+            } else if(s4State === 3) {
+                document.getElementById('s4-step-text').innerText = "Étape 4 : Répétition (Agrégation)";
+                document.getElementById('s4-aggregation').classList.remove('opacity-0');
+                document.getElementById('s4-btn-step').disabled = true;
+                
+                const fi = document.getElementById('s4-forest-icons');
+                for(let i=0; i<5; i++) {
+                    setTimeout(() => {
+                        fi.innerHTML += `<i data-lucide="network" class="w-6 h-6 text-blue-500"></i>`;
+                        if(window.lucide) window.lucide.createIcons();
+                    }, i*300);
+                }
+            }
+        }
+        
+        function s4UpdateUI() {
+            if(s4State >= 2) {
+                if(document.getElementById('s4-max-feat').checked) {
+                    document.getElementById('s4-feat-info').classList.remove('hidden');
+                } else {
+                    document.getElementById('s4-feat-info').classList.add('hidden');
+                }
+            }
+        }
+
+        // ==========================================
+        // SLIDE 5 : RF 2/2 Classification vs Reg
+        // ==========================================
+        let s5Mode = 'classif';
+        let s5Chart = null;
+        let s5Trees = []; // We simulate the trees for visual effect
+        
+        function initS5() {
+            const ctx = document.getElementById('s5-chart').getContext('2d');
+            s5Chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [1,5,10,20,30,40,50],
+                    datasets: [
+                        { label: 'Erreur RF', data: [0.3, 0.2, 0.15, 0.12, 0.11, 0.11, 0.11], borderColor: '#3b82f6', borderWidth:3, tension:0.4 },
+                        { label: 'Erreur 1 Arbre', data: [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3], borderColor: '#cbd5e1', borderDash:[5,5], borderWidth:2, pointRadius:0 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { min: 0, max: 0.4 } } }
+            });
+            s5SetMode('classif');
+        }
+
+        function s5SetMode(mode) {
+            s5Mode = mode;
+            document.getElementById('s5-btn-classif').className = mode==='classif' ? "px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700";
+            document.getElementById('s5-btn-reg').className = mode==='reg' ? "px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-orange-600" : "px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700";
+            
+            const cvs = document.getElementById('s5-canvas');
+            const ctx = cvs.getContext('2d');
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+            
+            // Draw background mock
+            let grad = ctx.createLinearGradient(0,0,cvs.width,cvs.height);
+            if(mode === 'classif') {
+                grad.addColorStop(0, '#eff6ff'); grad.addColorStop(1, '#fff7ed');
+                document.getElementById('s5-instr').innerText = "Cliquez pour voir le vote majoritaire";
+                document.getElementById('s5-agg-text').innerText = "Vote final :";
+            } else {
+                grad.addColorStop(0, '#f8fafc'); grad.addColorStop(1, '#f1f5f9');
+                document.getElementById('s5-instr').innerText = "Cliquez pour voir la moyenne";
+                document.getElementById('s5-agg-text').innerText = "Moyenne finale :";
+            }
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0,cvs.width,cvs.height);
+            
+            // Hide result panel
+            document.getElementById('s5-result-panel').classList.add('opacity-0');
+            document.getElementById('s5-click-marker').classList.add('hidden');
+        }
+
+        function updateS5() {
+            document.getElementById('s5-est-val').innerText = document.getElementById('s5-est').value;
+        }
+
+        function s5Predict(e) {
+            const rect = e.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const marker = document.getElementById('s5-click-marker');
+            marker.style.left = x + 'px'; marker.style.top = y + 'px';
+            marker.classList.remove('hidden');
+            
+            const n_est = parseInt(document.getElementById('s5-est').value);
+            const panel = document.getElementById('s5-result-panel');
+            const container = document.getElementById('s5-tree-preds');
+            const finalP = document.getElementById('s5-final-pred');
+            
+            container.innerHTML = '';
+            panel.classList.remove('opacity-0');
+            
+            // Simulate predictions
+            let preds = [];
+            setSeed(x+y); // reproducible per position
+            let base = (x/rect.width); // 0 to 1
+            
+            for(let i=0; i<n_est; i++) {
+                let div = document.createElement('div');
+                div.className = 'w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold text-white shadow-sm';
+                if(s5Mode === 'classif') {
+                    let c = (base + (random()-0.5)*0.5) > 0.5 ? 'B' : 'A';
+                    preds.push(c);
+                    div.innerText = c;
+                    div.style.backgroundColor = c==='A' ? '#3b82f6' : '#f97316';
+                } else {
+                    let v = base*100 + (random()-0.5)*40;
+                    preds.push(v);
+                    div.innerText = Math.round(v);
+                    div.style.backgroundColor = '#94a3b8';
+                }
+                container.appendChild(div);
+            }
+            
+            if(s5Mode === 'classif') {
+                let cA = preds.filter(p=>p==='A').length;
+                let cB = preds.filter(p=>p==='B').length;
+                let win = cA > cB ? 'A (Bleu)' : 'B (Orange)';
+                let col = cA > cB ? 'text-blue-600' : 'text-orange-600';
+                finalP.innerHTML = `<span class="${col}">${win}</span> <span class="text-xs text-gray-400 font-normal ml-2">(${Math.max(cA,cB)}/${n_est} voix)</span>`;
+            } else {
+                let avg = preds.reduce((a,b)=>a+b,0) / preds.length;
+                finalP.innerHTML = `<span class="text-indigo-600">${avg.toFixed(1)}</span>`;
+            }
+        }
+
+        // ==========================================
+        // SLIDE 6 : Gradient Boosting
+        // ==========================================
+        let s6Mode = 'reg';
+        let s6Data = [];
+        let s6F = [];
+        let s6Trees = [];
+        let s6M = 0;
+        let s6LossCurve = [];
+        let s6ChartObj = null;
+        let s6AutoId = null;
+
+        function initS6() {
+            const ctx = document.getElementById('s6-chart-loss').getContext('2d');
+            s6ChartObj = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Loss', data: [], borderColor: '#f97316', borderWidth: 2, pointRadius: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { x:{display:false} } }
+            });
+            s6SetMode('reg');
+        }
+
+        function s6SetMode(mode) {
+            s6Mode = mode;
+            document.getElementById('s6-btn-reg').className = mode==='reg' ? "px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-orange-600" : "px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700";
+            document.getElementById('s6-btn-classif').className = mode==='classif' ? "px-6 py-2 rounded-lg font-bold bg-white shadow-sm text-orange-600" : "px-6 py-2 rounded-lg font-bold text-gray-500 hover:text-gray-700";
+            
+            document.getElementById('s6-res-form').innerText = mode==='reg' ? 'r = y - F(x)' : 'r = y - Sigmoid(F(x))';
+            s6Reset();
+        }
+        
+        function s6UpdateLR() {
+            document.getElementById('s6-lr-val').innerText = document.getElementById('s6-lr').value;
+        }
+
+        function s6Reset() {
+            if(s6AutoId) clearInterval(s6AutoId); s6AutoId = null;
+            document.getElementById('s6-btn-auto').innerHTML = '<i data-lucide="play" class="w-4 h-4 mr-1"></i> Auto';
+            
+            setSeed(1234);
+            s6Data = [];
+            for(let i=0; i<30; i++) {
+                let x = (i/30)*10;
+                let y = s6Mode==='reg' ? Math.sin(x) + (random()-0.5)*0.5 : (x>3 && x<7 ? 1 : 0);
+                s6Data.push({x, y});
+            }
+            
+            let f0 = s6Mode==='reg' ? s6Data.reduce((a,b)=>a+b.y,0)/30 : 0; // simplify log-odds to 0
+            s6F = s6Data.map(() => f0);
+            s6Trees = [];
+            s6M = 0;
+            s6LossCurve = [];
+            
+            document.getElementById('s6-overfit-warn').classList.add('opacity-0');
+            s6ChartObj.data.labels = [];
+            s6ChartObj.data.datasets[0].data = [];
+            s6ChartObj.update();
+            
+            s6DrawAll(null);
+            if(window.lucide) window.lucide.createIcons();
+        }
+
+        function s6AddTree() {
+            s6M++;
+            document.getElementById('s6-m-val').innerText = s6M;
+            
+            let lr = parseFloat(document.getElementById('s6-lr').value);
+            
+            // Calc residuals
+            let res = [];
+            for(let i=0; i<30; i++) {
+                if(s6Mode === 'reg') res.push(s6Data[i].y - s6F[i]);
+                else res.push(s6Data[i].y - 1/(1+Math.exp(-s6F[i])));
+            }
+            
+            // Fit tree (max_depth=2 for viz)
+            let X = s6Data.map(d=>[d.x]);
+            let tree = buildCART(X, res, 2, true);
+            
+            // Update F
+            let preds = X.map(x => predictCART(tree, x));
+            for(let i=0; i<30; i++) s6F[i] += lr * preds[i];
+            
+            // Calc Loss
+            let loss = 0;
+            for(let i=0; i<30; i++) {
+                if(s6Mode === 'reg') Math.pow(s6Data[i].y - s6F[i], 2); // MSE
+                else {
+                    let p = 1/(1+Math.exp(-s6F[i]));
+                    loss -= s6Data[i].y*Math.log(p) + (1-s6Data[i].y)*Math.log(1-p); // Logloss
+                }
+            }
+            if(s6Mode==='reg') loss = s6Data.reduce((a,b,i)=>a+Math.pow(b.y-s6F[i],2),0);
+            
+            s6LossCurve.push(loss);
+            s6ChartObj.data.labels.push(s6M);
+            s6ChartObj.data.datasets[0].data = s6LossCurve;
+            s6ChartObj.update();
+            
+            if(s6M > 30 && lr > 0.2) {
+                document.getElementById('s6-overfit-warn').classList.remove('opacity-0');
+            }
+            
+            s6DrawAll(preds, res);
+        }
+
+        function s6AutoPlay() {
+            if(s6AutoId) {
+                clearInterval(s6AutoId); s6AutoId = null;
+                document.getElementById('s6-btn-auto').innerHTML = '<i data-lucide="play" class="w-4 h-4 mr-1"></i> Auto';
+            } else {
+                document.getElementById('s6-btn-auto').innerHTML = '<i data-lucide="pause" class="w-4 h-4 mr-1"></i> Pause';
+                s6AutoId = setInterval(s6AddTree, 300);
+            }
+            if(window.lucide) window.lucide.createIcons();
+        }
+
+        function s6DrawAll(h_preds, res) {
+            const drawData = (id, y_data, line_data, isProb=false, showRes=null) => {
+                const cvs = document.getElementById(id);
+                const ctx = cvs.getContext('2d');
+                cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+                ctx.clearRect(0,0,cvs.width,cvs.height);
+                
+                let min = isProb ? 0 : -2; let max = isProb ? 1 : 2;
+                if(id==='s6-canvas-res' || id==='s6-canvas-h') { min = -1; max = 1; }
+                const scaleY = y => cvs.height - ((y-min)/(max-min))*cvs.height;
+                const scaleX = x => (x/10)*cvs.width;
+                
+                // zero line
+                ctx.beginPath(); ctx.moveTo(0, scaleY(0)); ctx.lineTo(cvs.width, scaleY(0));
+                ctx.strokeStyle='#e2e8f0'; ctx.stroke();
+                
+                // Line F or h
+                if(line_data) {
+                    ctx.beginPath();
+                    for(let i=0; i<30; i++) {
+                        let yv = isProb ? 1/(1+Math.exp(-line_data[i])) : line_data[i];
+                        if(i===0) ctx.moveTo(scaleX(s6Data[i].x), scaleY(yv));
+                        else ctx.lineTo(scaleX(s6Data[i].x), scaleY(yv));
+                    }
+                    ctx.strokeStyle = id==='s6-canvas-h' ? '#10b981' : '#f97316';
+                    ctx.lineWidth=2; ctx.stroke();
+                }
+                
+                // Residuals segments
+                if(showRes) {
+                    for(let i=0; i<30; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(scaleX(s6Data[i].x), scaleY(s6Data[i].y));
+                        ctx.lineTo(scaleX(s6Data[i].x), scaleY(s6Data[i].y - showRes[i]));
+                        ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; ctx.lineWidth=2; ctx.stroke();
+                    }
+                }
+                
+                // Dots
+                if(y_data) {
+                    for(let i=0; i<30; i++) {
+                        ctx.beginPath(); ctx.arc(scaleX(s6Data[i].x), scaleY(y_data[i]), 3, 0, 2*Math.PI);
+                        ctx.fillStyle = id==='s6-canvas-res' ? '#ef4444' : '#64748b'; ctx.fill();
+                    }
+                }
+            };
+            
+            drawData('s6-canvas-F', s6Data.map(d=>d.y), s6F, s6Mode==='classif', s6M===0?null:(s6Mode==='reg'?s6F:s6F.map(f=>1/(1+Math.exp(-f)))));
+            if(res) drawData('s6-canvas-res', res, null, false);
+            if(h_preds) drawData('s6-canvas-h', null, h_preds, false);
+        }
+
+        // ==========================================
+        // SLIDE 7 : XGBoost 1/2
+        // ==========================================
+        function initS7() {
+            updateS7();
+        }
+        function updateS7() {
+            let lam = parseFloat(document.getElementById('s7-lam').value);
+            let gam = parseFloat(document.getElementById('s7-gam').value);
+            document.getElementById('s7-lam-val').innerText = lam.toFixed(1);
+            document.getElementById('s7-gam-val').innerText = gam.toFixed(1);
+            
+            // Lambda visual
+            let Gs = [10, -5, 20]; let H = 5;
+            let bars = document.getElementById('s7-bars');
+            bars.innerHTML = '';
+            Gs.forEach(g => {
+                let w = -g / (H + lam); // simplistic formula w*
+                let h = Math.abs(w) * 10; // scale for px
+                let d = document.createElement('div');
+                d.className = `w-12 rounded-t transition-all ${w<0?'bg-rose-400':'bg-blue-400'}`;
+                d.style.height = `${h}px`;
+                bars.appendChild(d);
+            });
+            
+            // Gamma visual
+            let node = document.getElementById('s7-prune-node');
+            if(4.5 - gam > 0) {
+                node.className = "w-16 h-10 border-2 border-emerald-500 rounded bg-emerald-100 flex items-center justify-center font-bold text-emerald-700 transition-all";
+                node.innerText = "Split OK";
+            } else {
+                node.className = "w-16 h-10 border-2 border-gray-400 rounded bg-gray-100 flex items-center justify-center font-bold text-gray-500 transition-all line-through";
+                node.innerText = "Élagué";
+            }
+        }
+
+        // ==========================================
+        // SLIDE 8 : XGBoost 2/2 Dashboard
+        // ==========================================
+        let s8LineChart, s8RadarChart;
+        function initS8() {
+            const ctxL = document.getElementById('s8-line-chart').getContext('2d');
+            s8LineChart = new Chart(ctxL, {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    { label: 'Train Loss', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius:0 },
+                    { label: 'Test Loss', data: [], borderColor: '#f43f5e', borderWidth: 2, pointRadius:0 }
+                ]},
+                options: { responsive: true, maintainAspectRatio: false, scales: { x:{display:false}, y:{min:0, max:1} } }
+            });
+            
+            const ctxR = document.getElementById('s8-radar-chart').getContext('2d');
+            s8RadarChart = new Chart(ctxR, {
+                type: 'radar',
+                data: {
+                    labels: ['Biais ↓', 'Variance ↓', 'Vitesse', 'Overfit ↓'],
+                    datasets: [{ data: [0,0,0,0], backgroundColor: 'rgba(244, 63, 94, 0.2)', borderColor: '#f43f5e', pointBackgroundColor: '#f43f5e' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display:false} }, scales: { r: { min:0, max:10, ticks:{display:false} } } }
+            });
+            updateS8();
+        }
+
+        function updateS8() {
+            let nest = parseInt(document.getElementById('s8-nest').value);
+            let lr = parseFloat(document.getElementById('s8-lr').value);
+            let depth = parseInt(document.getElementById('s8-depth').value);
+            let early = document.getElementById('s8-early').checked;
+            
+            document.getElementById('s8-nest-val').innerText = nest;
+            document.getElementById('s8-lr-val').innerText = lr.toFixed(2);
+            document.getElementById('s8-depth-val').innerText = depth;
+            
+            // Simuler courbes
+            let tr=[], te=[], overfit = false, stopAt = nest;
+            for(let i=0; i<=nest; i++) {
+                let ep = i * lr;
+                let t_l = Math.exp(-ep * (depth/3));
+                let te_l = t_l + (depth > 4 ? 0.005*Math.pow(ep, 1.5)*(depth-4) : 0);
+                
+                if(early && i>10 && te_l > te[i-1]) { stopAt = i; break; } // Early stopping
+                if(te_l > t_l + 0.15) overfit = true;
+                
+                tr.push(t_l); te.push(te_l);
+            }
+            
+            s8LineChart.data.labels = Array.from({length: stopAt+1}, (_,i)=>i);
+            s8LineChart.data.datasets[0].data = tr;
+            s8LineChart.data.datasets[1].data = te;
+            s8LineChart.update();
+            
+            // Radar
+            let biais = 10 - tr[tr.length-1]*10;
+            let variance = 10 - (te[te.length-1] - tr[tr.length-1])*10;
+            let vitesse = 10 - (nest/50) - (depth/2);
+            let risk = early ? 9 : (10 - (depth + nest*lr*2));
+            s8RadarChart.data.datasets[0].data = [biais, Math.max(0,variance), Math.max(0,vitesse), Math.max(0,risk)];
+            s8RadarChart.update();
+            
+            // Statut
+            const st = document.getElementById('s8-status');
+            const adv = document.getElementById('s8-advice');
+            if(tr[tr.length-1] > 0.4) {
+                st.innerText = "Underfitting"; st.className = "px-2 py-1 rounded text-[10px] font-black uppercase text-white bg-orange-500";
+                adv.innerText = "Augmentez n_estimators, learning_rate ou max_depth.";
+                adv.className = "mt-2 p-2 bg-orange-50 text-orange-800 text-xs font-medium rounded-lg text-center border border-orange-100";
+            } else if(overfit && !early) {
+                st.innerText = "Overfitting"; st.className = "px-2 py-1 rounded text-[10px] font-black uppercase text-white bg-red-500";
+                adv.innerText = "Activez early_stopping, réduisez max_depth ou le learning_rate.";
+                adv.className = "mt-2 p-2 bg-red-50 text-red-800 text-xs font-medium rounded-lg text-center border border-red-100";
+            } else {
+                st.innerText = "Optimal"; st.className = "px-2 py-1 rounded text-[10px] font-black uppercase text-white bg-green-500";
+                adv.innerText = "Très bonne configuration.";
+                adv.className = "mt-2 p-2 bg-green-50 text-green-800 text-xs font-medium rounded-lg text-center border border-green-100";
+            }
+        }
+        
+        function s8Optimize() {
+            document.getElementById('s8-nest').value = 150;
+            document.getElementById('s8-lr').value = 0.05;
+            document.getElementById('s8-depth').value = 4;
+            document.getElementById('s8-early').checked = true;
+            updateS8();
+        }
+
+        // ==========================================
+        // SLIDE 9 : Naive Bayes
+        // ==========================================
+        function initS9() {
+            updateS9Bayes();
+            
+            // Spam setup
+            const words = ["Gagnez", "de", "l'argent", "gratuit", "maintenant", "pour", "toujours"];
+            const cont = document.getElementById('s9-spam-words');
+            words.forEach(w => {
+                let s = document.createElement('span');
+                s.className = "px-3 py-1 bg-gray-100 rounded-full cursor-pointer hover:bg-purple-100 border border-gray-200 transition-colors select-none";
+                s.innerText = w;
+                s.onclick = function() { this.classList.toggle('bg-purple-200'); this.classList.toggle('border-purple-400'); updateS9Spam(); };
+                cont.appendChild(s);
+            });
+            updateS9Spam();
+        }
+        
+        function updateS9Bayes() {
+            let pC = parseFloat(document.getElementById('s9-pC').value) / 100;
+            let pXC = parseFloat(document.getElementById('s9-pXC').value) / 100;
+            let pXnotC = parseFloat(document.getElementById('s9-pXnotC').value) / 100;
+            
+            document.getElementById('s9-pC-val').innerText = (pC*100).toFixed(1) + '%';
+            document.getElementById('s9-pXC-val').innerText = (pXC*100).toFixed(0) + '%';
+            document.getElementById('s9-pXnotC-val').innerText = (pXnotC*100).toFixed(0) + '%';
+            
+            let num = pXC * pC;
+            let den = num + pXnotC * (1 - pC);
+            let post = num / den;
+            
+            document.getElementById('s9-post-val').innerText = (post*100).toFixed(2) + '%';
+            document.getElementById('s9-form-num').innerText = `${pXC.toFixed(2)} × ${pC.toFixed(3)}`;
+            document.getElementById('s9-form-den').innerText = `(${pXC.toFixed(2)} × ${pC.toFixed(3)} + ${pXnotC.toFixed(2)} × ${(1-pC).toFixed(3)})`;
+            
+            // Dots
+            const cvs = document.getElementById('s9-dots-canvas');
+            const ctx = cvs.getContext('2d');
+            cvs.width = cvs.offsetWidth; cvs.height = cvs.offsetHeight;
+            ctx.clearRect(0,0,cvs.width,cvs.height);
+            
+            let total = 1000;
+            let sick = Math.round(total * pC);
+            let truePos = Math.round(sick * pXC);
+            let falsePos = Math.round((total - sick) * pXnotC);
+            
+            let cols = Math.floor(cvs.width / 8);
+            for(let i=0; i<total; i++) {
+                let x = (i % cols) * 8 + 4;
+                let y = Math.floor(i / cols) * 8 + 4;
+                ctx.beginPath(); ctx.arc(x,y,2.5,0,2*Math.PI);
+                
+                if(i < truePos) ctx.fillStyle = '#ef4444'; // vrai pos
+                else if(i >= sick && i < sick+falsePos) ctx.fillStyle = '#c084fc'; // faux pos
+                else ctx.fillStyle = '#cbd5e1'; // neg
+                ctx.fill();
+            }
+        }
+        
+        function updateS9Spam() {
+            const vocab = {
+                "Gagnez": {s:0.4, h:0.01}, "de": {s:0.5, h:0.5}, "l'argent": {s:0.3, h:0.02},
+                "gratuit": {s:0.6, h:0.00}, "maintenant": {s:0.2, h:0.05}, "pour": {s:0.4, h:0.4}, "toujours": {s:0.1, h:0.1}
+            };
+            
+            let laplace = document.getElementById('s9-laplace').checked;
+            let selected = [...document.getElementById('s9-spam-words').querySelectorAll('.bg-purple-200')].map(e=>e.innerText);
+            
+            let calcDiv = document.getElementById('s9-spam-calc');
+            calcDiv.innerHTML = '';
+            
+            let pS = 0.5, pH = 0.5;
+            
+            if(selected.length === 0) {
+                calcDiv.innerHTML = '<div class="text-gray-500 italic">Sélectionnez des mots...</div>';
+            } else {
+                selected.forEach(w => {
+                    let vs = vocab[w].s, vh = vocab[w].h;
+                    if(laplace) {
+                        // pseudo laplace pour la demo : si 0 -> 0.01
+                        if(vs===0) vs = 0.01; if(vh===0) vh = 0.01;
+                    }
+                    calcDiv.innerHTML += `<div>P("${w}"|Spam) = ${vs.toFixed(2)} | P("${w}"|Ham) = ${vh.toFixed(2)}</div>`;
+                    pS *= vs; pH *= vh;
+                });
+            }
+            
+            let z = pS + pH;
+            if(z === 0) { pS = 0; pH = 0; }
+            else { pS /= z; pH /= z; } // normalized for display
+            
+            document.getElementById('s9-p-spam').innerText = (pS).toExponential(2);
+            document.getElementById('s9-p-ham').innerText = (pH).toExponential(2);
+            
+            let bar = document.getElementById('s9-spam-bar');
+            let verd = document.getElementById('s9-verdict');
+            if(pS===0 && pH===0) { bar.style.width = '50%'; bar.className = 'h-full bg-gray-500 transition-all'; verd.innerText='INCERTAIN'; }
+            else {
+                bar.style.width = `${pS*100}%`;
+                if(pS > 0.8) { bar.className = 'h-full bg-red-500 transition-all'; verd.innerText='SPAM DETECTÉ'; }
+                else if(pH > 0.8) { bar.className = 'h-full bg-green-500 transition-all'; verd.innerText='HAM (LEGITIME)'; }
+                else { bar.className = 'h-full bg-yellow-500 transition-all'; verd.innerText='SUSPECT'; }
+            }
+        }
+
+        // ==========================================
+        // SLIDE 10 : Comparaison
+        // ==========================================
+        const s10Models = {
+            dt: { name: 'Decision Tree', data: ['Règles Si-Alors', 'Oui', 'Oui', 'Interprétable, rapide', 'Overfitting fort', 'Très rapide', 'Haute', 'Très Élevé'], radar: [10, 8, 3, 2] },
+            rf: { name: 'Random Forest', data: ['Bagging (Parallèle)', 'Oui', 'Oui', 'Robuste, out-of-box', 'Lent en inférence', 'Moyen', 'Basse', 'Faible'], radar: [4, 6, 8, 8] },
+            gb: { name: 'Grad. Boosting', data: ['Boosting (Séquentiel)', 'Oui', 'Oui', 'Très performant', 'Long à entraîner', 'Lent (Train)', 'Basse', 'Moyen'], radar: [3, 9, 9, 6] },
+            xgb: { name: 'XGBoost', data: ['Boosting Optimisé', 'Oui', 'Oui', 'SOTA tabulaire, rapide', 'Beaucoup d\'hyperparam.', 'Rapide', 'Basse', 'Moyen'], radar: [3, 10, 10, 7] },
+            nb: { name: 'Naive Bayes', data: ['Théorème de Bayes', 'Surtout', 'Rarement', 'Texte, ultra rapide', 'Hypothèse irréaliste', 'Extrêmement rapide', 'Moyenne', 'Très Faible'], radar: [7, 5, 2, 9] }
+        };
+        const s10Crit = ['Principe', 'Classification', 'Régression', 'Avantage majeur', 'Limite principale', 'Vitesse d\'entraînement', 'Interprétabilité', 'Risque d\'Overfitting'];
+        let s10Radar = null;
+
+        function initS10() {
+            const tbody = document.getElementById('s10-tbody');
+            s10Crit.forEach((c, i) => {
+                let tr = document.createElement('tr'); tr.className="hover:bg-gray-50";
+                let th = document.createElement('th'); th.className="p-3 font-medium text-gray-700 bg-gray-50/50"; th.innerText = c; tr.appendChild(th);
+                Object.keys(s10Models).forEach(k => {
+                    let td = document.createElement('td'); td.className=`p-3 col-${k} transition-opacity`; td.innerText = s10Models[k].data[i]; tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            
+            const ctx = document.getElementById('s10-radar').getContext('2d');
+            s10Radar = new Chart(ctx, {
+                type: 'radar',
+                data: { labels: ['Interprétabilité', 'Performance', 'Complexité données', 'Vitesse'], datasets: [] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { min:0, max:10, ticks:{display:false} } } }
+            });
+            updateS10();
+        }
+
+        function updateS10() {
+            const colors = { dt: '#10b981', rf: '#3b82f6', gb: '#f97316', xgb: '#f43f5e', nb: '#a855f7' };
+            s10Radar.data.datasets = [];
+            
+            document.querySelectorAll('.s10-cb').forEach(cb => {
+                const k = cb.value;
+                document.querySelectorAll(`.col-${k}`).forEach(el => el.style.opacity = cb.checked ? '1' : '0.2');
+                if(cb.checked) {
+                    s10Radar.data.datasets.push({
+                        label: s10Models[k].name,
+                        data: s10Models[k].radar,
+                        borderColor: colors[k],
+                        backgroundColor: colors[k]+'33',
+                        borderWidth: 2
+                    });
+                }
+            });
+            s10Radar.update();
+        }
+
+        // Init final
+        lucide.createIcons();
+        updateSlides();
+    </script>
+</body>
+</html>
