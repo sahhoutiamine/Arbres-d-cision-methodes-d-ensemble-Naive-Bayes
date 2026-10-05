@@ -58,6 +58,12 @@
         .tab-content.active { display: flex !important; animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* Tree growing animation */
+        @keyframes growLine { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+        @keyframes popNode { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+        .tree-grow-line { stroke-dasharray: 100; stroke-dashoffset: 100; animation: growLine 0.6s ease-out forwards; }
+        .tree-grow-node { transform-origin: center; transform: scale(0); opacity: 0; animation: popNode 0.4s ease-out forwards; }
+
         /* Custom Colors */
         .color-dt { color: #10b981; } .bg-dt { background-color: #10b981; }
         .color-rf { color: #3b82f6; } .bg-rf { background-color: #3b82f6; }
@@ -103,7 +109,42 @@
             <h2 class="text-xl text-gray-500 mb-8 font-light">
                 Du modèle simple à XGBoost : principes, usages en classification et régression.
             </h2>
-            
+            <!-- Animated growing tree -->
+            <div class="mb-6 flex justify-center">
+                <svg width="280" height="110" viewBox="0 0 280 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Trunk -->
+                    <line x1="140" y1="10" x2="140" y2="40" stroke="#10b981" stroke-width="3" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 0.2s"/>
+                    <!-- Root node -->
+                    <circle cx="140" cy="10" r="8" fill="#ecfdf5" stroke="#10b981" stroke-width="2" class="tree-grow-node" style="animation-delay: 0s"/>
+                    <text x="140" y="13" text-anchor="middle" font-size="7" fill="#10b981" font-weight="bold" class="tree-grow-node" style="animation-delay: 0.1s">?</text>
+                    <!-- Left branch -->
+                    <line x1="140" y1="40" x2="80" y2="65" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 0.7s"/>
+                    <!-- Right branch -->
+                    <line x1="140" y1="40" x2="200" y2="65" stroke="#f97316" stroke-width="2" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 0.9s"/>
+                    <!-- Internal node -->
+                    <circle cx="140" cy="40" r="7" fill="#f0fdf4" stroke="#10b981" stroke-width="2" class="tree-grow-node" style="animation-delay: 0.5s"/>
+                    <text x="140" y="43" text-anchor="middle" font-size="6" fill="#10b981" font-weight="bold" class="tree-grow-node" style="animation-delay: 0.6s">?</text>
+                    <!-- Left sub-branches -->
+                    <line x1="80" y1="65" x2="50" y2="90" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 1.3s"/>
+                    <line x1="80" y1="65" x2="110" y2="90" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 1.5s"/>
+                    <!-- Right sub-branches -->
+                    <line x1="200" y1="65" x2="170" y2="90" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 1.7s"/>
+                    <line x1="200" y1="65" x2="230" y2="90" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" class="tree-grow-line" style="animation-delay: 1.9s"/>
+                    <!-- Level 2 nodes -->
+                    <circle cx="80" cy="65" r="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" class="tree-grow-node" style="animation-delay: 1.1s"/>
+                    <circle cx="200" cy="65" r="6" fill="#fff7ed" stroke="#f97316" stroke-width="2" class="tree-grow-node" style="animation-delay: 1.1s"/>
+                    <!-- Leaf nodes -->
+                    <circle cx="50" cy="92" r="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5" class="tree-grow-node" style="animation-delay: 2.0s"/>
+                    <text x="50" y="95" text-anchor="middle" font-size="5" fill="#3b82f6" font-weight="bold" class="tree-grow-node" style="animation-delay: 2.1s">A</text>
+                    <circle cx="110" cy="92" r="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5" class="tree-grow-node" style="animation-delay: 2.2s"/>
+                    <text x="110" y="95" text-anchor="middle" font-size="5" fill="#3b82f6" font-weight="bold" class="tree-grow-node" style="animation-delay: 2.3s">B</text>
+                    <circle cx="170" cy="92" r="5" fill="#ffedd5" stroke="#f97316" stroke-width="1.5" class="tree-grow-node" style="animation-delay: 2.4s"/>
+                    <text x="170" y="95" text-anchor="middle" font-size="5" fill="#f97316" font-weight="bold" class="tree-grow-node" style="animation-delay: 2.5s">A</text>
+                    <circle cx="230" cy="92" r="5" fill="#ffedd5" stroke="#f97316" stroke-width="1.5" class="tree-grow-node" style="animation-delay: 2.6s"/>
+                    <text x="230" y="95" text-anchor="middle" font-size="5" fill="#f97316" font-weight="bold" class="tree-grow-node" style="animation-delay: 2.7s">B</text>
+                </svg>
+            </div>
+
             <div class="grid grid-cols-3 gap-4 mb-8">
                 <div onclick="goToSlide(2)" class="glass-panel p-4 rounded-xl cursor-pointer hover:bg-emerald-50 hover:border-emerald-200 transition-all group">
                     <i data-lucide="git-merge" class="w-8 h-8 text-emerald-500 mx-auto mb-2 group-hover:scale-110 transition-transform"></i>
@@ -277,7 +318,12 @@
                 </div>
                 
                 <div class="mt-4 p-3 bg-gray-100 rounded-lg text-sm text-center font-mono text-gray-600 border border-gray-200" id="s2-formula">
-                    Gini = 1 - Σ pₖ²  |  Gain = I(parent) - Σ (nᵢ/n)·I(enfant i)
+                    Gini = 1 - Σ pₖ²  |  Entropie = − Σ pₖ log₂ pₖ  |  Gain = I(parent) − Σ (nᵢ/n)·I(enfant i)
+                </div>
+                <div class="mt-3 flex justify-center space-x-4 text-xs">
+                    <span class="px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 font-bold"><i data-lucide="octagon" class="inline w-3 h-3 mr-1"></i> Arrêt : profondeur max</span>
+                    <span class="px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 font-bold"><i data-lucide="octagon" class="inline w-3 h-3 mr-1"></i> Effectif minimal (min_samples)</span>
+                    <span class="px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg border border-amber-200 font-bold"><i data-lucide="octagon" class="inline w-3 h-3 mr-1"></i> Gain nul</span>
                 </div>
             </div>
         </div>
@@ -318,6 +364,19 @@
                         <div class="flex justify-between mb-1"><span>Critère:</span><span id="s3-prop-crit" class="font-bold">Gini/Entropie</span></div>
                         <div class="flex justify-between"><span>Nb feuilles:</span><span id="s3-prop-leaves" class="font-bold text-blue-600">8</span></div>
                     </div>
+
+                    <!-- Comparaison Classification vs Régression -->
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 text-[10px] mt-3">
+                        <table class="w-full text-left">
+                            <thead><tr class="text-blue-800 font-black uppercase"><th></th><th>Classif.</th><th>Régression</th></tr></thead>
+                            <tbody class="text-gray-600">
+                                <tr><td class="font-bold py-0.5">Cible</td><td>Catégorie</td><td>Valeur num.</td></tr>
+                                <tr><td class="font-bold py-0.5">Critère</td><td>Gini / Entropie</td><td>MSE / Variance</td></tr>
+                                <tr><td class="font-bold py-0.5">Feuille</td><td>Classe maj.</td><td>Moyenne</td></tr>
+                                <tr><td class="font-bold py-0.5">Prédiction</td><td>Zones rect.</td><td>Fn escalier</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 
                 <div class="w-1/2 glass-panel p-4 rounded-3xl relative">
@@ -333,9 +392,10 @@
                     <div id="s3-status" class="mt-2 text-center text-sm font-bold p-2 rounded bg-green-50 text-green-600 border border-green-200">Optimal</div>
                 </div>
             </div>
-            <div class="text-center mt-4 text-gray-500 font-medium">
+            <div class="text-center mt-4 text-gray-500 font-medium text-sm">
                 <i data-lucide="alert-triangle" class="inline w-4 h-4 text-orange-500 mr-1"></i>
-                Un arbre seul a une <strong>variance élevée</strong> (sujet à l'overfitting) <i data-lucide="arrow-right" class="inline w-4 h-4 mx-1"></i> on combine plusieurs arbres !
+                Un arbre seul a une <strong>variance élevée</strong> (sujet à l'overfitting). Leviers : <code class="bg-gray-100 px-1 rounded text-xs">max_depth</code>, <code class="bg-gray-100 px-1 rounded text-xs">min_samples_leaf</code>, élagage.
+                <i data-lucide="arrow-right" class="inline w-4 h-4 mx-1"></i> on combine plusieurs arbres !
             </div>
         </div>
     </div>
@@ -633,27 +693,41 @@
     <!-- Slide 8 : XGBoost (2/2) : Hyperparamètres -->
     <div class="slide" id="slide-8">
         <div class="max-w-[90rem] w-full px-8">
-            <h2 class="text-4xl font-bold text-gray-800 mb-6 text-center">XGBoost (2/2) : Hyperparamètres</h2>
+            <h2 class="text-4xl font-bold text-gray-800 mb-4 text-center">XGBoost (2/2) : Hyperparamètres</h2>
             
             <div class="absolute top-8 right-8 text-[10px] font-bold text-rose-500 uppercase border border-rose-200 px-2 py-1 rounded bg-rose-50 z-20">Simulation pédagogique</div>
 
-            <div class="grid grid-cols-12 gap-6 h-[500px]">
+            <!-- Hyperparameter reference table -->
+            <div class="mb-4 overflow-x-auto">
+                <table class="w-full text-xs text-left border border-gray-200 rounded-xl overflow-hidden">
+                    <thead class="bg-gray-100 text-gray-700 font-black uppercase">
+                        <tr><th class="p-2">Hyperparamètre</th><th class="p-2">Rôle</th><th class="p-2 text-orange-600">Si trop petit</th><th class="p-2 text-red-600">Si trop grand</th></tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-100 text-gray-600">
+                        <tr><td class="p-2 font-bold">n_estimators</td><td class="p-2">Nombre d'arbres</td><td class="p-2">Sous-apprentissage</td><td class="p-2">Sur-apprentissage, lenteur</td></tr>
+                        <tr><td class="p-2 font-bold">learning_rate (η)</td><td class="p-2">Poids de chaque arbre</td><td class="p-2">Apprentissage lent (++ arbres)</td><td class="p-2">Instable, sur-apprentissage</td></tr>
+                        <tr><td class="p-2 font-bold">max_depth</td><td class="p-2">Profondeur de chaque arbre</td><td class="p-2">Modèle trop simple</td><td class="p-2">Arbres complexes, overfitting</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="grid grid-cols-12 gap-4 h-[380px]">
                 <!-- Controles -->
-                <div class="col-span-3 glass-panel p-5 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col justify-between">
+                <div class="col-span-3 glass-panel p-4 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col justify-between">
                     <div>
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <div class="flex justify-between text-xs font-bold mb-1"><label>n_estimators</label><span id="s8-nest-val" class="text-rose-600">100</span></div>
                             <input type="range" id="s8-nest" min="10" max="500" step="10" value="100" class="accent-rose-500" oninput="updateS8()">
                         </div>
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <div class="flex justify-between text-xs font-bold mb-1"><label>learning_rate</label><span id="s8-lr-val" class="text-rose-600">0.1</span></div>
                             <input type="range" id="s8-lr" min="0.01" max="0.5" step="0.01" value="0.1" class="accent-rose-500" oninput="updateS8()">
                         </div>
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <div class="flex justify-between text-xs font-bold mb-1"><label>max_depth</label><span id="s8-depth-val" class="text-rose-600">6</span></div>
                             <input type="range" id="s8-depth" min="1" max="10" step="1" value="6" class="accent-rose-500" oninput="updateS8()">
                         </div>
-                        <div class="mb-4 flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="mb-3 flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
                             <label class="text-xs font-bold text-gray-700">early_stopping</label>
                             <input type="checkbox" id="s8-early" class="w-4 h-4 accent-rose-500" onchange="updateS8()">
                         </div>
@@ -684,6 +758,18 @@
                     <div class="w-full aspect-square relative">
                         <canvas id="s8-radar-chart"></canvas>
                     </div>
+                </div>
+            </div>
+
+            <!-- Practical rule + other hyperparams -->
+            <div class="flex justify-between items-center mt-3 gap-4">
+                <div class="flex-1 p-3 bg-rose-50 text-rose-800 rounded-xl border border-rose-200 text-xs font-medium">
+                    <i data-lucide="lightbulb" class="inline w-4 h-4 mr-1 text-rose-500"></i>
+                    <strong>Règle pratique :</strong> <code class="bg-white px-1 rounded">learning_rate</code> faible + <code class="bg-white px-1 rounded">n_estimators</code> élevé, avec <code class="bg-white px-1 rounded">early_stopping</code>.
+                </div>
+                <div class="flex-1 p-3 bg-gray-50 text-gray-700 rounded-xl border border-gray-200 text-xs font-medium">
+                    <i data-lucide="settings" class="inline w-4 h-4 mr-1 text-gray-500"></i>
+                    <strong>Autres :</strong> <code class="bg-white px-1 rounded">subsample</code>, <code class="bg-white px-1 rounded">colsample_bytree</code>, <code class="bg-white px-1 rounded">reg_lambda</code>, <code class="bg-white px-1 rounded">gamma</code>, <code class="bg-white px-1 rounded">min_child_weight</code>.
                 </div>
             </div>
         </div>
@@ -774,55 +860,122 @@
     <!-- Slide 10 : Comparaison & Conclusion -->
     <div class="slide" id="slide-10">
         <div class="max-w-[95rem] w-full px-4">
-            <h2 class="text-4xl font-bold text-gray-800 mb-8 text-center">Comparaison & Choix du Modèle</h2>
+            <h2 class="text-4xl font-bold text-gray-800 mb-4 text-center">Comparaison & Choix du Modèle</h2>
             
-            <div class="flex space-x-6 h-[550px]">
-                <div class="w-3/4 glass-panel p-6 rounded-3xl bg-white border border-gray-100 flex flex-col">
-                    <div class="flex space-x-4 mb-4">
-                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-emerald-600"><input type="checkbox" checked value="dt" class="s10-cb accent-emerald-500 w-4 h-4" onchange="updateS10()"> <span>Decision Tree</span></label>
-                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-blue-600"><input type="checkbox" checked value="rf" class="s10-cb accent-blue-500 w-4 h-4" onchange="updateS10()"> <span>Random Forest</span></label>
-                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-orange-600"><input type="checkbox" checked value="gb" class="s10-cb accent-orange-500 w-4 h-4" onchange="updateS10()"> <span>Gradient Boosting</span></label>
-                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-rose-600"><input type="checkbox" checked value="xgb" class="s10-cb accent-rose-500 w-4 h-4" onchange="updateS10()"> <span>XGBoost</span></label>
-                        <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-purple-600"><input type="checkbox" checked value="nb" class="s10-cb accent-purple-500 w-4 h-4" onchange="updateS10()"> <span>Naive Bayes</span></label>
+            <div class="flex justify-center space-x-6 mb-4">
+                <button class="tab-btn active px-4 py-2 text-lg" onclick="switchTab('slide-10', 1)">Tableau comparatif</button>
+                <button class="tab-btn px-4 py-2 text-lg" onclick="switchTab('slide-10', 2)">Quel modèle choisir ?</button>
+            </div>
+
+            <!-- Tab 1: Comparison table -->
+            <div id="slide10-tab1" class="tab-content active flex-col">
+                <div class="flex space-x-6 h-[480px]">
+                    <div class="w-3/4 glass-panel p-6 rounded-3xl bg-white border border-gray-100 flex flex-col">
+                        <div class="flex space-x-4 mb-4">
+                            <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-emerald-600"><input type="checkbox" checked value="dt" class="s10-cb accent-emerald-500 w-4 h-4" onchange="updateS10()"> <span>Decision Tree</span></label>
+                            <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-blue-600"><input type="checkbox" checked value="rf" class="s10-cb accent-blue-500 w-4 h-4" onchange="updateS10()"> <span>Random Forest</span></label>
+                            <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-orange-600"><input type="checkbox" checked value="gb" class="s10-cb accent-orange-500 w-4 h-4" onchange="updateS10()"> <span>Gradient Boosting</span></label>
+                            <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-rose-600"><input type="checkbox" checked value="xgb" class="s10-cb accent-rose-500 w-4 h-4" onchange="updateS10()"> <span>XGBoost</span></label>
+                            <label class="flex items-center space-x-1 cursor-pointer text-sm font-bold text-purple-600"><input type="checkbox" checked value="nb" class="s10-cb accent-purple-500 w-4 h-4" onchange="updateS10()"> <span>Naive Bayes</span></label>
+                        </div>
+                        
+                        <div class="overflow-y-auto flex-1 border border-gray-200 rounded-xl">
+                            <table class="w-full text-left text-sm" id="s10-table">
+                                <thead class="bg-gray-100 sticky top-0 z-10 text-xs uppercase font-bold text-gray-600">
+                                    <tr>
+                                        <th class="p-3">Critère</th>
+                                        <th class="p-3 text-emerald-700 col-dt transition-opacity">Decision Tree</th>
+                                        <th class="p-3 text-blue-700 col-rf transition-opacity">Random Forest</th>
+                                        <th class="p-3 text-orange-700 col-gb transition-opacity">Grad. Boosting</th>
+                                        <th class="p-3 text-rose-700 col-xgb transition-opacity">XGBoost</th>
+                                        <th class="p-3 text-purple-700 col-nb transition-opacity">Naive Bayes</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 bg-white" id="s10-tbody">
+                                    <!-- JS Gen -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     
-                    <div class="overflow-y-auto flex-1 border border-gray-200 rounded-xl">
-                        <table class="w-full text-left text-sm" id="s10-table">
-                            <thead class="bg-gray-100 sticky top-0 z-10 text-xs uppercase font-bold text-gray-600">
-                                <tr>
-                                    <th class="p-3">Critère</th>
-                                    <th class="p-3 text-emerald-700 col-dt transition-opacity">Decision Tree</th>
-                                    <th class="p-3 text-blue-700 col-rf transition-opacity">Random Forest</th>
-                                    <th class="p-3 text-orange-700 col-gb transition-opacity">Grad. Boosting</th>
-                                    <th class="p-3 text-rose-700 col-xgb transition-opacity">XGBoost</th>
-                                    <th class="p-3 text-purple-700 col-nb transition-opacity">Naive Bayes</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 bg-white" id="s10-tbody">
-                                <!-- JS Gen -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div class="w-1/4 flex flex-col space-y-4">
-                    <div class="glass-panel p-4 rounded-3xl bg-white border border-gray-100 h-1/2 flex flex-col items-center justify-center">
-                        <h3 class="font-bold text-gray-400 text-xs uppercase mb-2">Profil Sélectionné</h3>
-                        <div class="w-full h-full relative"><canvas id="s10-radar"></canvas></div>
-                    </div>
-                    <div class="glass-panel p-6 rounded-3xl bg-gray-900 text-white border border-gray-700 h-1/2 relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-800 opacity-20"></div>
-                        <h3 class="font-bold text-indigo-300 text-sm uppercase mb-4 relative z-10">Conclusion</h3>
-                        <ul class="text-sm space-y-3 relative z-10 opacity-90 font-medium">
-                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-emerald-400 mr-2 shrink-0 mt-0.5"></i> Interprétabilité ? → Arbre</li>
-                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-blue-400 mr-2 shrink-0 mt-0.5"></i> Robuste out-of-box ? → Forêt</li>
-                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-rose-400 mr-2 shrink-0 mt-0.5"></i> Performance Max ? → XGBoost</li>
-                            <li class="flex"><i data-lucide="check" class="w-4 h-4 text-purple-400 mr-2 shrink-0 mt-0.5"></i> Texte / Rapide ? → Naive Bayes</li>
-                        </ul>
-                        <div class="absolute bottom-4 right-4 text-gray-500 opacity-50"><i data-lucide="award" class="w-8 h-8"></i></div>
+                    <div class="w-1/4 flex flex-col space-y-4">
+                        <div class="glass-panel p-4 rounded-3xl bg-white border border-gray-100 h-1/2 flex flex-col items-center justify-center">
+                            <h3 class="font-bold text-gray-400 text-xs uppercase mb-2">Profil Sélectionné</h3>
+                            <div class="w-full h-full relative"><canvas id="s10-radar"></canvas></div>
+                        </div>
+                        <div class="glass-panel p-6 rounded-3xl bg-gray-900 text-white border border-gray-700 h-1/2 relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-800 opacity-20"></div>
+                            <h3 class="font-bold text-indigo-300 text-sm uppercase mb-4 relative z-10">Conclusion</h3>
+                            <ul class="text-sm space-y-3 relative z-10 opacity-90 font-medium">
+                                <li class="flex"><i data-lucide="check" class="w-4 h-4 text-emerald-400 mr-2 shrink-0 mt-0.5"></i> Interprétabilité ? → Arbre</li>
+                                <li class="flex"><i data-lucide="check" class="w-4 h-4 text-blue-400 mr-2 shrink-0 mt-0.5"></i> Robuste out-of-box ? → Forêt</li>
+                                <li class="flex"><i data-lucide="check" class="w-4 h-4 text-rose-400 mr-2 shrink-0 mt-0.5"></i> Performance Max ? → XGBoost</li>
+                                <li class="flex"><i data-lucide="check" class="w-4 h-4 text-purple-400 mr-2 shrink-0 mt-0.5"></i> Texte / Rapide ? → Naive Bayes</li>
+                            </ul>
+                            <div class="absolute bottom-4 right-4 text-gray-500 opacity-50"><i data-lucide="award" class="w-8 h-8"></i></div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Tab 2: Quel modèle choisir ? -->
+            <div id="slide10-tab2" class="tab-content flex-col">
+                <div class="flex space-x-6 h-[480px]">
+                    <!-- Left: Interactive chooser -->
+                    <div class="w-1/2 glass-panel p-6 rounded-3xl bg-white border border-gray-100 flex flex-col">
+                        <h3 class="font-bold text-gray-700 mb-4 flex items-center"><i data-lucide="compass" class="w-5 h-5 mr-2 text-indigo-500"></i> Quel modèle pour votre cas ?</h3>
+                        <div class="space-y-4 flex-1">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                <span class="text-sm font-bold text-gray-700"><i data-lucide="eye" class="inline w-4 h-4 mr-2 text-emerald-500"></i>Interprétabilité requise</span>
+                                <input type="checkbox" class="s10-filter w-5 h-5 accent-emerald-500" data-filter="interp" onchange="updateS10Filter()">
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                <span class="text-sm font-bold text-gray-700"><i data-lucide="gauge" class="inline w-4 h-4 mr-2 text-rose-500"></i>Performance maximale</span>
+                                <input type="checkbox" class="s10-filter w-5 h-5 accent-rose-500" data-filter="perf" onchange="updateS10Filter()">
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                <span class="text-sm font-bold text-gray-700"><i data-lucide="zap" class="inline w-4 h-4 mr-2 text-amber-500"></i>Vitesse prioritaire</span>
+                                <input type="checkbox" class="s10-filter w-5 h-5 accent-amber-500" data-filter="speed" onchange="updateS10Filter()">
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                <span class="text-sm font-bold text-gray-700"><i data-lucide="file-text" class="inline w-4 h-4 mr-2 text-purple-500"></i>Données textuelles</span>
+                                <input type="checkbox" class="s10-filter w-5 h-5 accent-purple-500" data-filter="text" onchange="updateS10Filter()">
+                            </div>
+                        </div>
+                        <div id="s10-recommendation" class="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
+                            <div class="text-xs font-bold text-indigo-400 uppercase mb-1">Recommandation</div>
+                            <div class="text-xl font-black text-indigo-700" id="s10-reco-text">Cochez vos critères ci-dessus</div>
+                        </div>
+                    </div>
+
+                    <!-- Right: 5 Key Messages -->
+                    <div class="w-1/2 glass-panel p-6 rounded-3xl bg-gradient-to-br from-gray-900 to-gray-800 text-white border border-gray-700 flex flex-col">
+                        <h3 class="font-bold text-indigo-300 text-sm uppercase mb-6 flex items-center"><i data-lucide="key" class="w-5 h-5 mr-2"></i>5 Messages Clés</h3>
+                        <div class="space-y-3 flex-1" id="s10-key-messages">
+                            <div class="s10-msg p-3 rounded-xl bg-white/5 border border-white/10 opacity-30 cursor-pointer hover:opacity-100 transition-all" onclick="revealS10Msg(this)">
+                                <span class="text-emerald-400 font-black mr-2">1.</span> Un arbre est <strong>simple mais instable</strong> (haute variance).
+                            </div>
+                            <div class="s10-msg p-3 rounded-xl bg-white/5 border border-white/10 opacity-30 cursor-pointer hover:opacity-100 transition-all" onclick="revealS10Msg(this)">
+                                <span class="text-blue-400 font-black mr-2">2.</span> Random Forest = <strong>Bagging</strong> → réduit la variance.
+                            </div>
+                            <div class="s10-msg p-3 rounded-xl bg-white/5 border border-white/10 opacity-30 cursor-pointer hover:opacity-100 transition-all" onclick="revealS10Msg(this)">
+                                <span class="text-orange-400 font-black mr-2">3.</span> Gradient Boosting = <strong>séquentiel</strong> → réduit le biais.
+                            </div>
+                            <div class="s10-msg p-3 rounded-xl bg-white/5 border border-white/10 opacity-30 cursor-pointer hover:opacity-100 transition-all" onclick="revealS10Msg(this)">
+                                <span class="text-rose-400 font-black mr-2">4.</span> XGBoost = Gradient Boosting <strong>optimisé et régularisé</strong>.
+                            </div>
+                            <div class="s10-msg p-3 rounded-xl bg-white/5 border border-white/10 opacity-30 cursor-pointer hover:opacity-100 transition-all" onclick="revealS10Msg(this)">
+                                <span class="text-purple-400 font-black mr-2">5.</span> Naive Bayes = Bayes + indépendance, <strong>surtout classification</strong>.
+                            </div>
+                        </div>
+                        <button onclick="revealAllS10Msgs()" class="mt-4 px-4 py-2 bg-white/10 text-white/80 rounded-xl text-sm font-bold hover:bg-white/20 transition-all">
+                            <i data-lucide="eye" class="inline w-4 h-4 mr-1"></i> Révéler tout
+                        </button>
+
+                    </div>
+                </div>
+            </div>
+
             <div class="text-right text-xs font-bold text-gray-400 mt-2">10 / 10</div>
         </div>
     </div>
@@ -1957,6 +2110,50 @@
                 }
             });
             s10Radar.update();
+        }
+
+        // Slide 10 Tab 2: Interactive model chooser
+        function updateS10Filter() {
+            const filters = {};
+            document.querySelectorAll('.s10-filter').forEach(cb => {
+                filters[cb.dataset.filter] = cb.checked;
+            });
+            
+            const recoEl = document.getElementById('s10-reco-text');
+            
+            if(!filters.interp && !filters.perf && !filters.speed && !filters.text) {
+                recoEl.innerText = "Cochez vos critères ci-dessus";
+                return;
+            }
+            
+            let recommendations = [];
+            if(filters.text) recommendations.push("🟣 Naive Bayes");
+            if(filters.interp && !filters.perf) recommendations.push("🟢 Decision Tree");
+            if(filters.perf && !filters.interp) recommendations.push("🔴 XGBoost / Gradient Boosting");
+            if(filters.speed && !filters.perf) recommendations.push("🟣 Naive Bayes");
+            if(filters.interp && filters.perf) recommendations.push("🔵 Random Forest (compromis)");
+            if(filters.speed && filters.perf) recommendations.push("🔴 XGBoost (rapide & performant)");
+            if(!filters.text && !filters.interp && filters.perf && !filters.speed) recommendations.push("🔴 XGBoost");
+            if(!filters.text && !filters.perf && !filters.speed && filters.interp) recommendations.push("🟢 Decision Tree");
+            
+            // Deduplicate
+            recommendations = [...new Set(recommendations)];
+            
+            if(recommendations.length === 0) recommendations.push("🔵 Random Forest (polyvalent)");
+            recoEl.innerHTML = recommendations.join('<br>');
+        }
+
+        function revealS10Msg(el) {
+            el.style.opacity = '1';
+            el.style.borderColor = 'rgba(255,255,255,0.3)';
+            el.style.background = 'rgba(255,255,255,0.1)';
+        }
+
+        function revealAllS10Msgs() {
+            const msgs = document.querySelectorAll('.s10-msg');
+            msgs.forEach((m, i) => {
+                setTimeout(() => revealS10Msg(m), i * 200);
+            });
         }
 
         // Init final
